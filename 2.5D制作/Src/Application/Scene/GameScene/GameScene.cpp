@@ -16,7 +16,7 @@ void GameScene::Event()
 		);
 	}
 
-	Math::Vector3 camPos = { 0,2,-4 };
+	Math::Vector3 camPos = { 0,2,-3 };
 	Math::Matrix transmat = Math::Matrix::CreateTranslation(camPos + m_player->GetPos());
 	Math::Matrix rotmat = Math::Matrix::CreateRotationX(DirectX::XMConvertToRadians(30));
 	m_camera->SetCameraMatrix(rotmat * transmat);

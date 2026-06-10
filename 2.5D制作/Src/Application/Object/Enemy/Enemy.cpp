@@ -27,8 +27,6 @@ void Enemy::Update()
 {
 	m_dir = { 0, 0, 0 }; // 初期化
 	bool isMoving = false;
-	int m_dirID = 0; // 0:下, 1:左, 2:右, 3:上
-
 
 	// 1. 入力検知と移動ベクトルの設定
 	if (GetAsyncKeyState(VK_UP) & 0x8000)
