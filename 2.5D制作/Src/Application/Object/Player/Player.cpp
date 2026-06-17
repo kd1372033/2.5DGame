@@ -20,7 +20,7 @@ void Player::Init()
 	// 原点変更(真ん中→真ん中)
 	m_polygon->SetPivot(KdSquarePolygon::PivotType::Center_Bottom);
 
-	m_pos = { 0,2,0 };
+	m_pos = { 0,2,-1.75};
 }
 
 void Player::Update()
@@ -102,6 +102,18 @@ void Player::Update()
 		// ジャンプ力
 		m_gravity = -0.1;
 	}
+	if (m_pos.z <= -2.25f)
+	{
+		m_pos.z = -2.25f;
+	}
+	if (m_pos.z >= -0.3f)
+	{
+		m_pos.z = -0.3f;
+	}
+	if (m_pos.x <= -11.0f)
+	{
+		m_pos.x = -11.0f;
+	}
 	//重力
 	m_pos.y -= m_gravity;
 	m_gravity += 0.005f;
@@ -182,9 +194,9 @@ void Player::PostUpdate()
 	KdCollider::SphereInfo sphere;
 	// 球の中心座標
 	sphere.m_sphere.Center = m_pos;
-	sphere.m_sphere.Center.y += 0.3;
+	sphere.m_sphere.Center.y += 0.27;
 	// 球の半径を設定
-	sphere.m_sphere.Radius = 0.3;
+	sphere.m_sphere.Radius = 0.25;
 	// 当たり判定をしたいタイプを設定
 	sphere.m_type = KdCollider::Type::TypeGround;
 
@@ -229,7 +241,6 @@ void Player::PostUpdate()
 		m_pos += hitDir * maxOverLap;
 		//		↑当たった方向(方向ベクトルは長さ１)
 	}
-
 }
 
 void Player::GenerateDepthMapFromLight()

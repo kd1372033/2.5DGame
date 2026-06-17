@@ -1,9 +1,10 @@
 ﻿#pragma once
 
+class Player;
 class Enemy : public KdGameObject
 {
 public:
-	Enemy() { Init(); }
+	Enemy() {}
 	~Enemy() {}
 
 	void Init()			override;
@@ -12,7 +13,16 @@ public:
 	void GenerateDepthMapFromLight()override;
 	void DrawLit()		override;
 
+	Math::Vector3 GetPos() { return m_pos; }
+	int GetDir() { return m_dirID; }
+
+	void SetTarget(std::weak_ptr<Player> _target) { m_wpTarget = _target; }
+
 private:
+
+	std::weak_ptr<KdGameObject> m_target;
+
+	std::weak_ptr<Player>m_wpTarget;
 
 	std::shared_ptr<KdSquarePolygon> m_polygon;
 
@@ -22,7 +32,18 @@ private:
 
 	float m_anime = 0;
 	float m_speed = 0.01f;
+	float m_goal;
 	float m_gravity = 0;
+
+	enum class State {
+		Walk,   // 移動中
+		Wait    // 1秒停止中
+	};
+	State m_state; // 初期状態は移動
+	float m_timer;    // 停止タイマー
+
+	bool m_chaseFlg;
+	float m_searchArea;
 
 	const int Run[4][8] = {
 		{ 16,17,18,19,20,21,22,23 }, // 0:下

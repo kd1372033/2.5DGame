@@ -1,114 +1,178 @@
 ﻿#include "Enemy.h"
 
 #include "../../Scene/SceneManager.h"
+#include "../Player/Player.h"
 
 
 void Enemy::Init()
 {
-	// デバッグ用のポインタを実体化
 	m_pDebugWire = std::make_unique<KdDebugWireFrame>();
-
-	// 実体化
 	m_polygon = std::make_shared<KdSquarePolygon>();
-
-	// テクスチャの設定
 	m_polygon->SetMaterial("Asset/Textures/Enemy.png");
-
-	// 画像を分割
 	m_polygon->SetSplit(8, 6);
-
-	// 原点変更(真ん中→真ん中)
 	m_polygon->SetPivot(KdSquarePolygon::PivotType::Center_Bottom);
 
-	m_pos = { -1,2,0 };
+	// 初期位置
+	m_pos = { -2.0f, 1.0f, -1.0f };
+
+	// 移動初期化
+	m_dir = { 1.0f, 0.0f, 0.0f }; // 最初は右向き
+	m_speed = 0.01f;
+	m_anime = 0.0f;
+	m_state = State::Walk;          // 最初は歩く
+	m_timer = 0.0f;                 // タイマーリセット
+
+	m_chaseFlg = false;
+
+	// サーチ範囲
+	m_searchArea = 0.5f;
 }
 
 void Enemy::Update()
 {
-	m_dir = { 0, 0, 0 }; // 初期化
 	bool isMoving = false;
 
-	// 1. 入力検知と移動ベクトルの設定
-	if (GetAsyncKeyState(VK_UP) & 0x8000)
+	// タイマーを進めるのは「追尾していない（巡回中）のとき」だけ
+	if (!m_chaseFlg)
 	{
-		m_dir.z += 1;
-		m_dirID = 3; // 上を向く
-		isMoving = true;
-	}
-	if (GetAsyncKeyState(VK_DOWN) & 0x8000)
-	{
-		m_dir.z += -1;
-		m_dirID = 0; // 下を向く
-		isMoving = true;
-	}
-	if (GetAsyncKeyState(VK_LEFT) & 0x8000)
-	{
-		m_dir.x += -1;
-		m_dirID = 1; // 左を向く
-		isMoving = true;
-	}
-	if (GetAsyncKeyState(VK_RIGHT) & 0x8000)
-	{
-		m_dir.x += 1;
-		m_dirID = 2; // 右を向く
-		isMoving = true;
+		m_timer += 1.0f;
 	}
 
-	// 2. 移動処理（斜め移動の速度を一定にするために正規化）
-	if (isMoving)
-	{
-		m_dir.Normalize();
-		m_pos += m_dir * m_speed;
+	// =========================================================
+	// プレイヤーとの距離判定（索敵・追尾フラグの更新）
+	// =========================================================
+	float offsetDistance = 0.3f; // 前方にズラす距離
+	Math::Vector3 searchCenter = m_pos + Math::Vector3(0, 0, 0);
 
-		// アニメーションタイマーを進める（移動時は8フレームでループ）
-		m_anime += 0.1;
-		if (m_anime >= 8.0) m_anime = 0.0;
+	// 追尾中でない（巡回中）の時だけ、向いている前方にサークルを押し出す
+	if (!m_chaseFlg)
+	{
+		searchCenter.x += m_dir.x * offsetDistance;
+	}
+
+	Math::Vector3 targetPos = {};
+	if (m_wpTarget.expired() == false)
+	{
+		targetPos = m_wpTarget.lock()->GetPos();
+
+		// ① 索敵サークルの中心（searchCenter）からプレイヤーへの距離を測る（これは合っています）
+		Math::Vector3 v = targetPos - searchCenter;
+		v.y = 0.0f;
+
+		if (v.Length() < m_searchArea)
+		{
+			m_chaseFlg = true;
+
+			// ★修正ポイント：方向を決めるベクトルは、サークルの中心ではなく
+			// 「エネミーの本来の位置（m_pos）」から「プレイヤー（targetPos）」への純粋な左右関係で計算する！
+			Math::Vector3 chaseVec = targetPos - m_pos;
+			chaseVec.y = 0.0f;
+			chaseVec.Normalize();
+
+			// 安全対策：もし完全に重なってゼロベクトルになった場合は、現在の向きを維持
+			if (chaseVec.Length() > 0.0f)
+			{
+				m_dir = chaseVec;
+			}
+		}
+		else
+		{
+			if (m_chaseFlg)
+			{
+				m_chaseFlg = false;
+				m_state = State::Wait;
+				m_timer = 0.0f;
+				// 見失った時は、その時向いていた方向（m_dir.xが正なら右、負なら左）を維持して巡回に戻す
+				m_dir = (m_dir.x > 0.0f) ? Math::Vector3{ 1.0f, 0.0f, 0.0f } : Math::Vector3{ -1.0f, 0.0f, 0.0f };
+			}
+		}
+	}
+	// =========================================================
+	// 状態に応じた移動処理（追尾 ON / OFF で分岐）
+	// =========================================================
+	if (m_chaseFlg)
+	{
+		isMoving = true;
+		float dashSpeed = m_speed * 3.0f;
+		m_pos.x += dashSpeed * m_dir.x;
+		m_anime += 0.05f;
 	}
 	else
 	{
-		// 待機時は4フレームでループ
-		m_anime += 0.1; // 待機は少しゆっくりめ
-		if (m_anime >= 4.0) m_anime = 0.0;
+		switch (m_state)
+		{
+		case State::Walk:
+			isMoving = true;
+			m_pos.x += m_speed * m_dir.x;
+
+			if (m_timer >= 120.0f)
+			{
+				m_state = State::Wait;
+				m_timer = 0.0f;
+			}
+			break;
+
+		case State::Wait:
+			isMoving = false;
+
+			if (m_timer >= 60.0f)
+			{
+				m_dir.x *= -1.0f;
+				m_state = State::Walk;
+				m_timer = 0.0f;
+			}
+			break;
+		}
 	}
 
-	// 現在の状態に応じてUVを設定
+	// ★修正ポイント③：デバッグ用の球も、ずらした中心座標（searchCenter）を使って描画する
+	m_pDebugWire->AddDebugSphere
+	(
+		searchCenter,
+		m_searchArea,
+		kGreenColor
+	);
+
+	// =========================================================
+	// アニメーションタイマーの更新
+	// =========================================================
 	if (isMoving)
 	{
-		const int Run[4][8] = {
-		{ 16,17,18,19,20,21,22,23 }, // 0:下
-		{ 8,9,10,11,12,13,14,15 },   // 1:左
-		{ 0,1,2,3,4,5,6,7 },         // 2:右
-		{ 24,25,26,27,28,29,30,31 }  // 3:上
-		};
-		int RunFrame = (int)m_anime % 8; // 0～7のフレーム番号
+		m_anime += 0.1f;
+		if (m_anime >= 8.0f) m_anime = 0.0f;
+	}
+	else
+	{
+		m_anime += 0.05f;
+		if (m_anime >= 4.0f) m_anime = 0.0f;
+	}
+
+	// =========================================================
+	// 向き（m_dirID）の同期とUVRectの設定
+	// =========================================================
+	if (m_dir.x > 0.0f)      m_dirID = 2; // 右向き
+	else if (m_dir.x < 0.0f) m_dirID = 1; // 左向き
+
+	if (isMoving)
+	{
+		int RunFrame = (int)m_anime % 8;
 		m_polygon->SetUVRect(Run[m_dirID][RunFrame]);
 	}
 	else
 	{
-		const int Wait[4][4] = {
-		{ 32,33,34,35 }, // 0:下
-		{ 40,41,42,43 }, // 1:左
-		{ 36,37,38,39 }, // 2:右
-		{ 44,45,46,47 }  // 3:上
-		};
-
-		int WaitFrame = (int)m_anime % 4; // 0～3のフレーム番号
+		int WaitFrame = (int)m_anime % 4;
 		m_polygon->SetUVRect(Wait[m_dirID][WaitFrame]);
 	}
 
-	// ジャンプ処理
-	if (GetAsyncKeyState(VK_SPACE) & 0x8000)
-	{
-		// ジャンプ力
-		m_gravity = -0.1;
-	}
-	//重力
+	// =========================================================
+	// 重力処理・行列更新
+	// =========================================================
+	// ※スペースキーによるジャンプ処理はエネミーの挙動をバグらせるため削除しました
 	m_pos.y -= m_gravity;
 	m_gravity += 0.005f;
 
 	Math::Matrix scalemat = Math::Matrix::CreateScale(0.5f);
 	Math::Matrix transmat = Math::Matrix::CreateTranslation(m_pos);
-
 	m_mWorld = scalemat * transmat;
 }
 
@@ -229,7 +293,6 @@ void Enemy::PostUpdate()
 		m_pos += hitDir * maxOverLap;
 		//		↑当たった方向(方向ベクトルは長さ１)
 	}
-
 }
 
 void Enemy::GenerateDepthMapFromLight()

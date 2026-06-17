@@ -7,8 +7,8 @@ void Ground::Init()
 
 	Math::Vector3 scale(1.0f, 1.0f, 1.0f);
 	Math::Matrix scalemat = Math::Matrix::CreateScale(scale);
-	Math::Matrix rotatemat = Math::Matrix::CreateRotationX(DirectX::XMConvertToRadians(-10));
-	Math::Matrix transmat = Math::Matrix::CreateTranslation(0.0f, 0.0f, 4.0f);
+	Math::Matrix rotatemat = Math::Matrix::CreateRotationY(DirectX::XMConvertToRadians(90));
+	Math::Matrix transmat = Math::Matrix::CreateTranslation(0.0f, 0.0f, -1.0f);
 
 	// ↓全オブジェクトに必要なので親クラスがメンバー変数として保持
 	m_mWorld = scalemat * rotatemat * transmat;
@@ -21,7 +21,7 @@ void Ground::Init()
 	// モデルの形状で当たり判定を登録
 	m_pCollider->RegisterCollisionShape
 	(
-		"GroundCollision",				// 識別用の名前
+		"Ground",						// 識別用の名前
 		m_model,						// 登録したいモデルの形状
 		KdCollider::Type::TypeGround	//当たり判定の種類
 	);
