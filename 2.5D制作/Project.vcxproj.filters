@@ -91,6 +91,9 @@
     <Filter Include="Src\Application\Object\Back">
       <UniqueIdentifier>{e5a944bb-0b1f-428f-b4aa-fba70a6ed9ff}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Application\Object\Item">
+      <UniqueIdentifier>{116314b1-2349-4cfa-96c0-0874b31a58e5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Pch.h">
@@ -279,6 +282,9 @@
     <ClInclude Include="Src\Application\Object\Back\Back.h">
       <Filter>Src\Application\Object\Back</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Application\Object\Item\Item.h">
+      <Filter>Src\Application\Object\Item</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Pch.cpp">
@@ -436,6 +442,9 @@
     </ClCompile>
     <ClCompile Include="Src\Application\Object\Back\Back.cpp">
       <Filter>Src\Application\Object\Back</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Application\Object\Item\Item.cpp">
+      <Filter>Src\Application\Object\Item</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

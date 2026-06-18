@@ -58,8 +58,14 @@ void GameScene::Init()
 	m_objList.push_back(m_player);
 
 	std::shared_ptr<Enemy> enemy;
-	enemy = std::make_shared<Enemy>();
-	enemy->Init();
-	enemy->SetTarget(m_player);
-	m_objList.push_back(enemy);
+	for (int i = 0; i < 10; ++i)
+	{
+		enemy = std::make_shared<Enemy>();
+		enemy->Init();
+		enemy->SetTarget(m_player);
+		Math::Vector3 spawnpos;
+		enemy->SetPos(spawnpos);
+		m_objList.push_back(enemy);
+	}
+	
 }

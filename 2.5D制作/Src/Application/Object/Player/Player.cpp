@@ -1,6 +1,7 @@
 ﻿#include "Player.h"
 
 #include "../../Scene/SceneManager.h"
+#include "../Item/Item.h"
 
 
 void Player::Init()
@@ -20,7 +21,11 @@ void Player::Init()
 	// 原点変更(真ん中→真ん中)
 	m_polygon->SetPivot(KdSquarePolygon::PivotType::Center_Bottom);
 
-	m_pos = { 0,2,-1.75};
+	m_pos = { 0,-1.6,-1.75 };
+
+	// 当たり判定登録
+	m_pCollider = std::make_unique<KdCollider>();
+	m_pCollider->RegisterCollisionShape("Player", { 0,0.27,0 }, 0.25, KdCollider::Type::TypeSight);
 }
 
 void Player::Update()
@@ -96,12 +101,20 @@ void Player::Update()
 		m_polygon->SetUVRect(Wait[m_dirID][WaitFrame]);
 	}
 
-	// ジャンプ処理
-	if (GetAsyncKeyState(VK_SPACE) & 0x8000)
+	// アイテム投げ
+	if (GetAsyncKeyState(VK_SPACE) & 0x0001)
 	{
-		// ジャンプ力
-		m_gravity = -0.1;
+		ThrowItem();
 	}
+
+	// ジャンプ処理
+	//if (GetAsyncKeyState(VK_SPACE) & 0x8000)
+	//{
+	//	// ジャンプ力
+	//	m_gravity = -0.1;
+	//}
+
+	// 端判定
 	if (m_pos.z <= -2.25f)
 	{
 		m_pos.z = -2.25f;
@@ -158,6 +171,7 @@ void Player::PostUpdate()
 	// 全オブジェクトと当たり判定を行う
 	for (auto& obj : SceneManager::Instance().GetObjList())
 	{
+		if (std::dynamic_pointer_cast<Item>(obj)) continue;
 		// レイと当たり判定!!!!!!
 		obj->Intersects(ray, &retRayList);
 	}
@@ -251,4 +265,34 @@ void Player::GenerateDepthMapFromLight()
 void Player::DrawLit()
 {
 	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_polygon, m_mWorld);
+}
+
+// プレイヤー側の攻撃・投擲処理のイメージ
+void Player::ThrowItem()
+{
+	auto newItem = std::make_shared<Item>();
+	newItem->Init();
+
+	// 1. 座標のセット（キャラクターの手元付近から投げるため、Y座標を少し上げる）
+	Math::Vector3 throwStartPos = m_pos;
+	throwStartPos.y += 0.4f; // お腹・手元の高さに調整
+	newItem->SetPos(throwStartPos);
+
+	// 2. 向き（m_dir）のセット
+	// 移動入力がない時でも、現在の「向いている方向(m_dirID)」から正しいベクトルを作って渡す
+	Math::Vector3 throwDir = { 0.0f, 0.0f, 0.0f };
+	switch (m_dirID)
+	{
+	case 0: throwDir.z = -1.0f; break; // 下（手前）を向いている時
+	case 1: throwDir.x = -1.0f; break; // 左を向いている時
+	case 2: throwDir.x = 1.0f; break; // 右を向いている時
+	case 3: throwDir.z = 1.0f; break; // 上（奥）を向いている時
+	}
+	newItem->SetDir(throwDir);
+
+	// 3. 投げる処理を起動
+	newItem->StartThrow();
+
+	// 4. ★【超重要】シーンにオブジェクトを登録（これで Update や PostUpdate が動くようになります）
+	SceneManager::Instance().AddObject(newItem);
 }

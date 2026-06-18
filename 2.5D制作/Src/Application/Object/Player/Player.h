@@ -12,6 +12,8 @@ public:
 	void GenerateDepthMapFromLight()override;
 	void DrawLit()		override;
 
+	void ThrowItem();
+
 private:
 
 	std::shared_ptr<KdSquarePolygon> m_polygon;
