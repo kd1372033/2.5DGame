@@ -1,0 +1,89 @@
+﻿#include "Jewelry.h"
+
+#include "../Player/Player.h"
+
+void Jewelry::Init()
+{
+	m_pDebugWire = std::make_unique<KdDebugWireFrame>();
+
+	// 実体化
+	m_polygon = std::make_shared<KdSquarePolygon>();
+
+	// テクスチャの設定
+	m_polygon->SetMaterial("Asset/Textures/Jewelry.png");
+
+	m_pos = { 9.5,-1,-1.75 };
+	m_alpha = 1.0f;
+
+}
+
+void Jewelry::Update()
+{
+	static float m_rotationY = 0;
+	m_rotationY += 0.02f;
+
+	Math::Matrix scalemat = Math::Matrix::CreateScale(0.75f);
+	Math::Matrix rotatemat = Math::Matrix::CreateRotationY(m_rotationY);
+	Math::Matrix transmat = Math::Matrix::CreateTranslation(m_pos);
+	m_mWorld = scalemat * rotatemat * transmat;
+}
+
+void Jewelry::PostUpdate()
+{
+
+	// 1. ウィークポインタが有効か、そしてshared_ptrに変換できるか（lock）をチェック
+	if (auto player = m_wpplayer.lock())
+	{
+		// ★このif文の中だけ、'player' は安全な shared_ptr として使えます！
+
+		// 自分（Jewelry）の中心座標
+		Math::Vector3 myCenter = m_pos;
+		myCenter.y -= 0.27f;
+
+		// 相手（Player）の中心座標
+		Math::Vector3 pCenter = player->GetPos();
+		pCenter.y += 0.27f;
+
+		// 先ほどの綺麗な距離判定ロジック
+		Math::Vector3 v = pCenter - myCenter;
+		float distance = v.Length();
+		float hitDistance = 0.4f; // お互いの半径
+
+		if (distance < hitDistance)
+		{
+			m_alpha -= 0.03f;
+			m_pos.y += 0.01f;
+
+			if (m_alpha <= 0.0f)
+			{
+				m_alpha = 0.0f;
+				player->SetHasJewelry(true);
+				auto se = KdAudioManager::Instance().Play("Asset/Sounds/Get.wav", false);
+				if (se) {
+					se->SetVolume(0.15f);
+				}
+				OnHit(); // 完全に透明になったので、ここでステージから削除！
+			}
+		}
+	}
+	// もしPlayerがすでにステージから消滅していた場合、lock()は不成立(null)になるので
+	// 自動的にスルーされ、エラー（不正アクセス）で落ちるのを防げます。
+}
+
+void Jewelry::DrawLit()
+{
+	Math::Color color = { 1.0f,1.0f,1.0f,m_alpha };
+	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_polygon, m_mWorld, color);
+}
+
+void Jewelry::DrawBright()
+{
+	Math::Color color = { 1.0f,1.0f,1.0f,m_alpha };
+	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_polygon, m_mWorld, color);
+}
+
+void Jewelry::OnHit()
+{
+	if (m_isFadeOut) return;
+	m_isExpired = true;
+}
