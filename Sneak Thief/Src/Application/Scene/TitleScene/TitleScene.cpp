@@ -1,5 +1,11 @@
 ﻿#include "TitleScene.h"
 #include "../SceneManager.h"
+#include "../../Object/TitleObj/TitleObj.h"
+
+void TitleScene::Event()
+{
+
+}
 
 void TitleScene::Init()
 {
@@ -8,18 +14,8 @@ void TitleScene::Init()
 
 	// 2. タイトルBGMを再生（すでに鳴っていても強制的に頭からリスタートされます）
 	KdAudioManager::Instance().PlayBGM("Asset/Sounds/BGM.wav", 0.2f);
-}
 
-void TitleScene::Event()
-{
-	if (GetAsyncKeyState(VK_RETURN) & 0x8000)
-	{
-		while (GetAsyncKeyState(VK_RETURN) & 0x8000) {} // 押しっぱなし防止
-
-		// 💡 ここでは Stop 処理を何も書かない！
-		// マネージャーの「m_currentBGM」が生存を保証してくれるため、
-		// シーンがゲームに切り替わってもBGMは途切れずに鳴り続けます。
-
-		SceneManager::Instance().SetNextScene(SceneManager::SceneType::Game);
-	}
+	std::shared_ptr<TitleObj> title;
+	title = std::make_shared<TitleObj>();
+	m_objList.push_back(title);
 }

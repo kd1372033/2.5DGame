@@ -118,10 +118,10 @@ void Player::Update()
 	// アイテム投げ
 	if (GetAsyncKeyState(VK_SPACE) & 0x0001)
 	{
-		auto bgm = KdAudioManager::Instance().Play("Asset/Sounds/Throw.wav", false); // ループ再生
+		auto se = KdAudioManager::Instance().Play("Asset/Sounds/Throw.wav", false); // ループ再生
 
-		if (bgm) {
-			bgm->SetVolume(0.1f); // 音量を50%に
+		if (se) {
+			se->SetVolume(0.1f); // 音量を50%に
 		}
 		ThrowItem();
 	}
