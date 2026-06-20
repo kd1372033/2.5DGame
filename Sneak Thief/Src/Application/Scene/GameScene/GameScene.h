@@ -3,6 +3,7 @@
 #include"../BaseScene/BaseScene.h"
 
 class Player;
+class GameUI;
 
 class GameScene : public BaseScene
 {
@@ -17,6 +18,7 @@ private:
 	void Init()  override;
 
 	std::shared_ptr<Player> m_player;
+	std::shared_ptr<GameUI> m_UI;
 
 	bool m_hasSpawnedEnemies = false;
 };

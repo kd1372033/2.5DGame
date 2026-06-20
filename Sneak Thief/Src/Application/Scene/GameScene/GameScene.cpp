@@ -6,6 +6,7 @@
 #include "../../Object/Player/Player.h"
 #include "../../Object/Enemy/Enemy.h"
 #include "../../Object/Jewelry/Jewelry.h"
+#include "../../Object/GameUI/GameUI.h"
 
 
 void GameScene::Event()
@@ -14,15 +15,28 @@ void GameScene::Event()
 	{
 		SceneManager::Instance().SetNextScene
 		(
+			SceneManager::SceneType::Title
+		);
+	}
+	if (GetAsyncKeyState('R') & 0x8000)
+	{
+		SceneManager::Instance().SetNextScene
+		(
 			SceneManager::SceneType::Result
 		);
 	}
+	if (GetAsyncKeyState(VK_TAB) & 0x8000)
+	{
+		m_UI->SetVisibleJewelry(true);
+	}
+
 
 	// =============================================================
 	// ★プレイヤーが宝石を獲得し、かつ、まだ敵を増やしていない場合
 	// =============================================================
 	if (m_player && m_player->HasJewelry() && !m_hasSpawnedEnemies)
 	{
+		m_UI->SetVisibleJewelry(true);
 		// 例として、敵を新たに5体追加してみます
 		for (int i = 0; i < 5; ++i)
 		{
@@ -42,13 +56,15 @@ void GameScene::Event()
 
 		// ★重要：これ以降、毎フレーム敵が増え続けないようにフラグを true にする
 		m_hasSpawnedEnemies = true;
+
+
 	}
 
 
-	Math::Vector3 targetCamPos = Math::Vector3{ 0, 0.5, -2 } + m_player->GetPos();
+	Math::Vector3 targetCamPos = Math::Vector3{ 0, 0.75, -2.5 } + Math::Vector3{ m_player->GetPos().x,m_player->GetPos().y,-1.75 };
 
 	float minX = -8.2;     // ステージの左端の限界
-	float maxX = 10.0f;   // ステージの右端の限界
+	float maxX = 8.0f;   // ステージの右端の限界
 	float minY = 0.0f;     // ステージの下端の限界 (落とし穴などがある場合)
 	float maxY = 0.3f;    // ステージの上端の限界
 
@@ -75,11 +91,6 @@ void GameScene::Init()
 
 	m_camera = std::make_unique<KdCamera>();
 
-	//auto bgm = KdAudioManager::Instance().Play("Asset/Sounds/BGM.wav", true); // ループ再生
-
-	//if (bgm) {
-	//	bgm->SetVolume(0.5f); // 音量を50%に
-	//}
 
 	std::shared_ptr<Ground> ground;
 	ground = std::make_shared<Ground>();
@@ -127,5 +138,8 @@ void GameScene::Init()
 	jewelry = std::make_shared<Jewelry>();
 	jewelry->SetTargetPlayer(m_player);
 	m_objList.push_back(jewelry);
+
+	m_UI = std::make_shared<GameUI>();
+	m_objList.push_back(m_UI);
 
 }

@@ -4,7 +4,20 @@
 
 void TitleScene::Event()
 {
-
+	if (GetAsyncKeyState('G') & 0x8000)
+	{
+		SceneManager::Instance().SetNextScene
+		(
+			SceneManager::SceneType::Game
+		);
+	}
+	if (GetAsyncKeyState('R') & 0x8000)
+	{
+		SceneManager::Instance().SetNextScene
+		(
+			SceneManager::SceneType::Result
+		);
+	}
 }
 
 void TitleScene::Init()
