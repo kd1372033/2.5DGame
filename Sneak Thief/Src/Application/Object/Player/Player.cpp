@@ -32,6 +32,11 @@ void Player::Init()
 
 void Player::Update()
 {
+	if (GetAsyncKeyState('A') & 0x0001)
+	{
+		m_showDebugWire = !m_showDebugWire; // フラグを反対にする
+	}
+
 	m_dir = { 0, 0, 0 }; // 初期化
 	bool isMoving = false;
 
@@ -144,7 +149,6 @@ void Player::Update()
 			SceneManager::Instance().SetNextScene(SceneManager::SceneType::Result);
 		}
 	}
-
 	//重力
 	m_pos.y -= m_gravity;
 	m_gravity += 0.005f;
@@ -182,7 +186,7 @@ void Player::PostUpdate()
 	// 当たり判定をしたいタイプを設定
 	ray.m_type = KdCollider::TypeGround;
 	// デバッグ
-	m_pDebugWire->AddDebugLine(ray.m_pos, ray.m_dir, ray.m_range);
+	//m_pDebugWire->AddDebugLine(ray.m_pos, ray.m_dir, ray.m_range);
 
 	// レイに当たったオブジェクト情報を格納するリスト
 	std::list<KdCollider::CollisionResult> retRayList;
@@ -233,7 +237,10 @@ void Player::PostUpdate()
 	sphere.m_type = KdCollider::Type::TypeGround;
 
 	// デバッグ
-	m_pDebugWire->AddDebugSphere(sphere.m_sphere.Center, sphere.m_sphere.Radius);
+	if (m_showDebugWire == true)
+	{
+		m_pDebugWire->AddDebugSphere(sphere.m_sphere.Center, sphere.m_sphere.Radius);
+	}
 
 	// 球に当たったオブジェクト情報を格納するリスト
 	std::list<KdCollider::CollisionResult> retSphereList;

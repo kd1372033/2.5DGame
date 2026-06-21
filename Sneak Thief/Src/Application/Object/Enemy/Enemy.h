@@ -16,6 +16,7 @@ public:
 	Math::Vector3 GetPos() { return m_pos; }
 	int GetDir() { return m_dirID; }
 
+	void SetPos(const Math::Vector3& _pos) override { m_pos = _pos; }
 	void SetTarget(std::weak_ptr<Player> _target) { m_wpTarget = _target; }
 	void SetTargetItem(std::shared_ptr<KdGameObject> pItem)
 	{
@@ -39,6 +40,8 @@ public:
 		m_state = State::Approach;
 	}
 
+	void ToggleDebugWire() { s_showDebugWire = !s_showDebugWire; }
+
 	void SetDir(bool dir)
 	{
 		// どちらのパトロールかを記憶しておく
@@ -58,6 +61,11 @@ public:
 			// ※上下移動のグラフィックがなければ、ひとまず右(2)か左(1)のままにします
 		}
 	}
+
+	static void SetShowDebugWire(bool show) { s_showDebugWire = show; }
+
+	// ★追加：現在のデバッグワイヤーの表示状態を取得するゲッター（反転させる時に便利です）
+	static bool GetShowDebugWire() { return s_showDebugWire; }
 
 private:
 
@@ -110,4 +118,6 @@ private:
 		{ 36,37,38,39 }, // 2:右
 		{ 44,45,46,47 }  // 3:上
 	};
+
+	static bool s_showDebugWire;
 };

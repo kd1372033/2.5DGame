@@ -14,7 +14,23 @@ public:
 
 	void ThrowItem();
 
-	void SetHasJewelry(bool _flag) { m_hasJewelry = _flag; }
+	void SetHasJewelry(bool _flag)
+	{
+		if (m_hasJewelry == _flag) return;
+
+		m_hasJewelry = _flag;
+
+		// false から true に変わった「獲得した瞬間」だけ音を鳴らす
+		if (m_hasJewelry == true)
+		{
+			// 【サウンド再生】音量0.2fで再生（音量はお好みで調整してください）
+			auto se = KdAudioManager::Instance().Play("Asset/Sounds/Get.wav", false);
+			if (se)
+			{
+				se->SetVolume(0.2f);
+			}
+		}
+	}
 	// 必要に応じて：現在持っているかを確認する関数
 	bool HasJewelry() const { return m_hasJewelry; }
 
@@ -33,5 +49,7 @@ private:
 	float m_gravity = 0;
 
 	bool m_hasJewelry = false; // 宝石を獲得したか？
+
+	bool m_showDebugWire = false;
 
 };

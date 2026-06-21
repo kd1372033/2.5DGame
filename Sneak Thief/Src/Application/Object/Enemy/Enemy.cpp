@@ -4,6 +4,8 @@
 #include "../Player/Player.h"
 #include "../Item/Item.h"
 
+bool Enemy::s_showDebugWire = false;
+
 
 void Enemy::Init()
 {
@@ -14,7 +16,7 @@ void Enemy::Init()
 	m_polygon->SetPivot(KdSquarePolygon::PivotType::Center_Bottom);
 
 	// 初期位置
-	m_pos = { -8.25f,-1.6f,-2.0f};
+	m_pos = {};
 
 	// 移動初期化
 	m_dir = { 1.0f, 0.0f, 0.0f }; // 最初は右向き
@@ -33,6 +35,25 @@ void Enemy::Init()
 
 void Enemy::Update()
 {
+	bool isLeader = false;
+	for (auto& obj : SceneManager::Instance().GetObjList())
+	{
+		if (auto firstEnemy = std::dynamic_pointer_cast<Enemy>(obj))
+		{
+			if (firstEnemy.get() == this)
+			{
+				isLeader = true;
+			}
+			break; // 1体見つけたらループを抜ける
+		}
+	}
+
+	// ★修正：リーダーだけが代表して、世界に1つだけの共通フラグを「1回だけ」反転させる
+	if (isLeader && (GetAsyncKeyState('A') & 0x0001))
+	{
+		s_showDebugWire = !s_showDebugWire;
+	}
+
 	bool isMoving = false;
 
 	// タイマーを進めるのは「追尾していない（巡回中）のとき」だけ
@@ -173,7 +194,7 @@ void Enemy::PostUpdate()
 	ray.m_dir = { 0, -1, 0 };
 	ray.m_range = m_gravity + enableStepHigh;
 	ray.m_type = KdCollider::TypeGround;
-	m_pDebugWire->AddDebugLine(ray.m_pos, ray.m_dir, ray.m_range);
+	//m_pDebugWire->AddDebugLine(ray.m_pos, ray.m_dir, ray.m_range);
 
 	std::list<KdCollider::CollisionResult> retRayList;
 	for (auto& obj : SceneManager::Instance().GetObjList())
@@ -207,7 +228,7 @@ void Enemy::PostUpdate()
 	sphere.m_sphere.Center.y += 0.3f;
 	sphere.m_sphere.Radius = 0.3f;
 	sphere.m_type = KdCollider::Type::TypeGround;
-	m_pDebugWire->AddDebugSphere(sphere.m_sphere.Center, sphere.m_sphere.Radius);
+	//m_pDebugWire->AddDebugSphere(sphere.m_sphere.Center, sphere.m_sphere.Radius);
 
 	std::list<KdCollider::CollisionResult> retSphereList;
 	for (auto& obj : SceneManager::Instance().GetObjList())
@@ -248,8 +269,12 @@ void Enemy::PostUpdate()
 	playerSearchSphere.m_type = KdCollider::TypeSight; // ★ タイプを設定
 
 	// 緑色のデバッグ球でプレイヤー索敵範囲を描画
-	m_pDebugWire->AddDebugSphere(playerSearchSphere.m_sphere.Center, playerSearchSphere.m_sphere.Radius, kGreenColor);
-
+	//m_pDebugWire->AddDebugSphere(playerSearchSphere.m_sphere.Center, playerSearchSphere.m_sphere.Radius, kGreenColor);
+	if (s_showDebugWire)
+	{
+		m_pDebugWire->AddDebugSphere(playerSearchSphere.m_sphere.Center, playerSearchSphere.m_sphere.Radius, kGreenColor);
+	}
+	
 	std::list<KdCollider::CollisionResult> retPlayerSearchList;
 	for (auto& obj : SceneManager::Instance().GetObjList())
 	{
@@ -341,7 +366,11 @@ void Enemy::PostUpdate()
 	itemSearchSphere.m_type = KdCollider::TypeSight;
 
 	// 赤色のデバッグ球で、エネミー自身のアイテム知覚範囲を描画
-	m_pDebugWire->AddDebugSphere(itemSearchSphere.m_sphere.Center, itemSearchSphere.m_sphere.Radius, kRedColor);
+	//m_pDebugWire->AddDebugSphere(itemSearchSphere.m_sphere.Center, itemSearchSphere.m_sphere.Radius, kRedColor);
+	if (s_showDebugWire)
+	{
+		m_pDebugWire->AddDebugSphere(itemSearchSphere.m_sphere.Center, itemSearchSphere.m_sphere.Radius, kRedColor);
+	}
 
 	// 見つけたアイテムを記憶しておくための変数
 	std::shared_ptr<Item> pFoundItem = nullptr;

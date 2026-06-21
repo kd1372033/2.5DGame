@@ -82,7 +82,7 @@ void Item::PostUpdate()
 		ray.m_type = KdCollider::TypeGround;
 
 		// デバッグ用に下向きのレイを描画（赤色）
-		m_pDebugWire->AddDebugLine(ray.m_pos, ray.m_dir, ray.m_range, kRedColor);
+		//m_pDebugWire->AddDebugLine(ray.m_pos, ray.m_dir, ray.m_range, kRedColor);
 
 		std::list<KdCollider::CollisionResult> retRayList;
 
@@ -132,7 +132,7 @@ void Item::PostUpdate()
 	searchSphere.m_type = KdCollider::Type::TypeGround;
 
 	// デバッグ用：索敵範囲を「緑色」または「黄色」の球で描画
-	m_pDebugWire->AddDebugSphere(searchSphere.m_sphere.Center, searchSphere.m_sphere.Radius, kGreenColor);
+	//m_pDebugWire->AddDebugSphere(searchSphere.m_sphere.Center, searchSphere.m_sphere.Radius, kGreenColor);
 
 	// 全オブジェクトの中から「敵」を探す
 	for (auto& obj : SceneManager::Instance().GetObjList())

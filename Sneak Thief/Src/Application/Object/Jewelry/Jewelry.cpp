@@ -51,17 +51,16 @@ void Jewelry::PostUpdate()
 
 		if (distance < hitDistance)
 		{
+			// ★修正：触れた瞬間（フェードアウトが始まる最初）に、プレイヤーに宝石を渡して音を鳴らす！
+			player->SetHasJewelry(true);
+
 			m_alpha -= 0.03f;
 			m_pos.y += 0.01f;
 
 			if (m_alpha <= 0.0f)
 			{
 				m_alpha = 0.0f;
-				player->SetHasJewelry(true);
-				auto se = KdAudioManager::Instance().Play("Asset/Sounds/Get.wav", false);
-				if (se) {
-					se->SetVolume(0.15f);
-				}
+				// (player->SetHasJewelry(true); はここにありましたが、上に引っ越しました)
 				OnHit(); // 完全に透明になったので、ここでステージから削除！
 			}
 		}
