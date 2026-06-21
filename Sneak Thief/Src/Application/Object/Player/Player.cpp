@@ -22,7 +22,7 @@ void Player::Init()
 	// 原点変更(真ん中→真ん中)
 	m_polygon->SetPivot(KdSquarePolygon::PivotType::Center_Bottom);
 
-	m_pos = { -11,-1.6,-1.75 };
+	m_pos = { -10.25,-1.6,-1.75 };
 	//m_pos = { 0,-1.6,-1.75 };
 
 	// 当たり判定登録
@@ -80,7 +80,7 @@ void Player::Update()
 		{
 			m_walkSound = KdAudioManager::Instance().Play("Asset/Sounds/Walk.wav", false);
 			if (m_walkSound) {
-				m_walkSound->SetVolume(0.1f);
+				m_walkSound->SetVolume(0.05f);
 			}
 		}
 	}
@@ -121,14 +121,32 @@ void Player::Update()
 	}
 
 	// アイテム投げ
-	if (GetAsyncKeyState(VK_SPACE) & 0x0001)
-	{
-		auto se = KdAudioManager::Instance().Play("Asset/Sounds/Throw.wav", false); // ループ再生
+	static bool s_isThrowKeyPressed = false;
 
-		if (se) {
-			se->SetVolume(0.1f); // 音量を50%に
+	bool isCurrentKeyPress = (GetAsyncKeyState(VK_SPACE) & 0x8000) != 0;
+
+	if (isCurrentKeyPress)
+	{
+		// 前のフレームで押されていなかった（＝今まさに押された瞬間）
+		if (!s_isThrowKeyPressed)
+		{
+			// SEを単発再生
+			auto se = KdAudioManager::Instance().Play("Asset/Sounds/Throw.wav", false);
+			if (se) {
+				se->SetVolume(0.05f);
+			}
+
+			// アイテム投擲処理
+			ThrowItem();
+
+			// フラグを立てて、押しっぱなし状態であることを記録
+			s_isThrowKeyPressed = true;
 		}
-		ThrowItem();
+	}
+	else
+	{
+		// キーが離されたらフラグをリセット
+		s_isThrowKeyPressed = false;
 	}
 
 	// 端判定
@@ -145,6 +163,12 @@ void Player::Update()
 		m_pos.x = -11.0f;
 		if (m_hasJewelry)
 		{
+			// ★【修正】リザルトへ移行するので、プレイヤーの足音を確実に止める
+			if (m_walkSound && m_walkSound->IsPlaying())
+			{
+				m_walkSound->Stop();
+			}
+
 			SceneManager::Instance().SetClearFlag(true);
 			SceneManager::Instance().SetNextScene(SceneManager::SceneType::Result);
 		}

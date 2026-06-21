@@ -42,7 +42,7 @@ private:
 
 	Math::Vector3 m_pos;
 	Math::Vector3 m_dir;
-	int m_dirID = 0; // 0:下, 1:左, 2:右, 3:上
+	int m_dirID = 2; // 0:下, 1:左, 2:右, 3:上
 
 	float m_anime = 0;
 	float m_speed = 0.01f;

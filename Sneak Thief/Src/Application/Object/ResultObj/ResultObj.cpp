@@ -30,12 +30,12 @@ void ResultObj::Update()
 		if (m_clear)
 		{
 			auto se = KdAudioManager::Instance().Play("Asset/Sounds/GameClear.wav", false);
-			if (se) se->SetVolume(0.1f);
+			if (se) se->SetVolume(0.05f);
 		}
 		else
 		{
 			auto se = KdAudioManager::Instance().Play("Asset/Sounds/GameOver.wav", false);
-			if (se) se->SetVolume(0.1f);
+			if (se) se->SetVolume(0.05f);
 		}
 		m_isplay = true;
 	}

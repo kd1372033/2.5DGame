@@ -28,7 +28,7 @@ void Item::StartThrow()
 
 	// 速度(m_vec)の初速を決める
 	m_vec.x = 0.06f * m_dir.x;
-	m_vec.y = 0.06f;           // 縦への打ち上げ力
+	m_vec.y = 0.03f;           // 縦への打ち上げ力
 	m_vec.z = 0.06f * m_dir.z;
 
 	// 行列の先行確定

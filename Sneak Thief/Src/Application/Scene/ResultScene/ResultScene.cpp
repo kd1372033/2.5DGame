@@ -18,6 +18,10 @@ void ResultScene::Event()
 			SceneManager::SceneType::Game
 		);
 	}
+	if (GetAsyncKeyState('R') & 0x8000)
+	{
+		Init();
+	}
 }
 
 void ResultScene::Init()

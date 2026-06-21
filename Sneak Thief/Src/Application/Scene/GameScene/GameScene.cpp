@@ -7,10 +7,101 @@
 #include "../../Object/Jewelry/Jewelry.h"
 #include "../../Object/GameUI/GameUI.h"
 
+
+void GameScene::Event()
+{
+	if (GetAsyncKeyState('A') & 0x0001)
+	{
+		// 現在の状態（Get）を反転（!）させた値をセット（Set）する
+		bool nextState = !Enemy::GetShowDebugWire();
+		Enemy::SetShowDebugWire(nextState);
+	}
+	
+	if (GetAsyncKeyState('T') & 0x8000)
+	{
+		SceneManager::Instance().SetNextScene
+		(
+			SceneManager::SceneType::Title
+		);
+	}
+	if (GetAsyncKeyState('G') & 0x0001)
+	{
+		Init();
+	}
+	if (GetAsyncKeyState('R') & 0x8000)
+	{
+		SceneManager::Instance().SetNextScene
+		(
+			SceneManager::SceneType::Result
+		);
+	}if (GetAsyncKeyState(VK_TAB) & 0x8000)
+	{
+		m_UI->SetVisibleJewelry(true); // UIを表示する（既存の処理）
+
+		// ★追加：プレイヤーに宝石を強制取得させる
+		if (m_player)
+		{
+			m_player->SetHasJewelry(true);
+		}
+	}
+
+	// =============================================================
+	// ★ プレイヤーが宝石を獲得し、かつ、まだ1部屋目の敵を出していない場合
+	// =============================================================
+	if (m_player && m_player->HasJewelry() && !m_hasSpawnedEnemies)
+	{
+		m_UI->SetVisibleJewelry(true);
+
+		// 宝石取得後、1部屋目の敵（5体）を一括出現させる
+		SpawnEnemiesInRoom(0); // 1部屋目の5体
+		SpawnEnemiesInRoom(1); // 2部屋目の残り（2体）
+		SpawnEnemiesInRoom(2); // 3部屋目の残り（2体）
+
+		// これ以降、毎フレーム湧き続けないようにフラグを true にする
+		m_hasSpawnedEnemies = true;
+	}
+
+	// カメラの追従・クランプ計算
+	Math::Vector3 targetCamPos = Math::Vector3{ 0, 0.75, -2.25 } + Math::Vector3{ m_player->GetPos().x, m_player->GetPos().y, -1.75 };
+
+	float minX = -8.2f;    // ステージの左端の限界
+	float maxX = 8.0f;     // ステージの右端の限界
+	float minY = 0.0f;     // ステージの下端の限界
+	float maxY = 0.3f;     // ステージの上端の限界
+
+	targetCamPos.x = std::clamp(targetCamPos.x, minX, maxX);
+	targetCamPos.y = std::clamp(targetCamPos.y, minY, maxY);
+
+	// 移動行列と回転行列を合成してカメラにセット
+	Math::Matrix transmat = Math::Matrix::CreateTranslation(targetCamPos);
+	Math::Matrix rotmat = Math::Matrix::CreateRotationX(DirectX::XMConvertToRadians(20));
+	m_camera->SetCameraMatrix(rotmat * transmat);
+}
+
+void GameScene::SpawnEnemiesInRoom(int roomIndex)
+{
+	// 部屋番号が配列の範囲外なら何もしない（安全対策）
+	if (roomIndex < 0 || roomIndex >= m_rooms.size()) return;
+
+	// 指定された部屋のすべての座標に敵を生成する
+	for (const auto& pos : m_rooms[roomIndex].spawnPositions)
+	{
+		auto newEnemy = std::make_shared<Enemy>();
+		newEnemy->Init();
+		newEnemy->SetTarget(m_player);
+		newEnemy->SetPos(pos);
+
+		m_objList.push_back(newEnemy);
+	}
+}
+
 void GameScene::Init()
 {
+	m_objList.clear();
+	m_rooms.clear();
+
 	KdShaderManager::Instance().WorkAmbientController().SetFogEnable(true, false);
-	KdShaderManager::Instance().WorkAmbientController().SetDistanceFog({ 0,0,0 }, 0.25);
+	KdShaderManager::Instance().WorkAmbientController().SetDistanceFog({ 0,0,0 }, 0.45);
 
 	m_camera = std::make_unique<KdCamera>();
 
@@ -79,85 +170,4 @@ void GameScene::Init()
 
 	m_UI = std::make_shared<GameUI>();
 	m_objList.push_back(m_UI);
-}
-
-void GameScene::Event()
-{
-	if (GetAsyncKeyState('A') & 0x0001)
-	{
-		// 現在の状態（Get）を反転（!）させた値をセット（Set）する
-		bool nextState = !Enemy::GetShowDebugWire();
-		Enemy::SetShowDebugWire(nextState);
-	}
-	if (GetAsyncKeyState('T') & 0x8000)
-	{
-		SceneManager::Instance().SetNextScene(SceneManager::SceneType::Title);
-	}
-	if (GetAsyncKeyState('R') & 0x8000)
-	{
-		SceneManager::Instance().SetNextScene(SceneManager::SceneType::Result);
-	}
-	if (GetAsyncKeyState(VK_TAB) & 0x8000)
-	{
-		m_UI->SetVisibleJewelry(true);
-	}
-	if (GetAsyncKeyState(VK_TAB) & 0x8000)
-	{
-		m_UI->SetVisibleJewelry(true); // UIを表示する（既存の処理）
-
-		// ★追加：プレイヤーに宝石を強制取得させる
-		if (m_player)
-		{
-			m_player->SetHasJewelry(true);
-		}
-	}
-
-	// =============================================================
-	// ★ プレイヤーが宝石を獲得し、かつ、まだ1部屋目の敵を出していない場合
-	// =============================================================
-	if (m_player && m_player->HasJewelry() && !m_hasSpawnedEnemies)
-	{
-		m_UI->SetVisibleJewelry(true);
-
-		// 宝石取得後、1部屋目の敵（5体）を一括出現させる
-		SpawnEnemiesInRoom(0); // 1部屋目の5体
-		SpawnEnemiesInRoom(1); // 2部屋目の残り（2体）
-		SpawnEnemiesInRoom(2); // 3部屋目の残り（2体）
-
-		// これ以降、毎フレーム湧き続けないようにフラグを true にする
-		m_hasSpawnedEnemies = true;
-	}
-
-	// カメラの追従・クランプ計算
-	Math::Vector3 targetCamPos = Math::Vector3{ 0, 0.75, -2.5 } + Math::Vector3{ m_player->GetPos().x, m_player->GetPos().y, -1.75 };
-
-	float minX = -8.2f;    // ステージの左端の限界
-	float maxX = 8.0f;     // ステージの右端の限界
-	float minY = 0.0f;     // ステージの下端の限界
-	float maxY = 0.3f;     // ステージの上端の限界
-
-	targetCamPos.x = std::clamp(targetCamPos.x, minX, maxX);
-	targetCamPos.y = std::clamp(targetCamPos.y, minY, maxY);
-
-	// 移動行列と回転行列を合成してカメラにセット
-	Math::Matrix transmat = Math::Matrix::CreateTranslation(targetCamPos);
-	Math::Matrix rotmat = Math::Matrix::CreateRotationX(DirectX::XMConvertToRadians(20));
-	m_camera->SetCameraMatrix(rotmat * transmat);
-}
-
-void GameScene::SpawnEnemiesInRoom(int roomIndex)
-{
-	// 部屋番号が配列の範囲外なら何もしない（安全対策）
-	if (roomIndex < 0 || roomIndex >= m_rooms.size()) return;
-
-	// 指定された部屋のすべての座標に敵を生成する
-	for (const auto& pos : m_rooms[roomIndex].spawnPositions)
-	{
-		auto newEnemy = std::make_shared<Enemy>();
-		newEnemy->Init();
-		newEnemy->SetTarget(m_player);
-		newEnemy->SetPos(pos);
-
-		m_objList.push_back(newEnemy);
-	}
 }

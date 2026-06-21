@@ -4,6 +4,10 @@
 
 void TitleScene::Event()
 {
+	if (GetAsyncKeyState('T') & 0x8000)
+	{
+		Init();
+	}
 	if (GetAsyncKeyState('G') & 0x8000)
 	{
 		SceneManager::Instance().SetNextScene
@@ -26,7 +30,7 @@ void TitleScene::Init()
 	KdAudioManager::Instance().StopAllSound();
 
 	// 2. タイトルBGMを再生（すでに鳴っていても強制的に頭からリスタートされます）
-	KdAudioManager::Instance().PlayBGM("Asset/Sounds/BGM.wav", 0.2f);
+	KdAudioManager::Instance().PlayBGM("Asset/Sounds/BGM.wav", 0.1f);
 
 	std::shared_ptr<TitleObj> title;
 	title = std::make_shared<TitleObj>();

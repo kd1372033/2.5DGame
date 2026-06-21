@@ -39,28 +39,31 @@ void TitleObj::Update()
 	else if (m_alpha <= 0.2f) { m_alpha = 0.2f; m_delta = 0.01f; }
 
 	// ==========================================
-	// 2. 自機の自動歩行・往復ロジック（追加）
+	// 2. 自機の自動歩行・往復ロジック（★修正：最初のEnterを押す前だけ動かす）
 	// ==========================================
-	// 座標を移動方向に進める
-	m_playerpos.x += m_moveDirX * m_speed;
-
-	// アニメーションのコマを進める（8コマ分ループ）
-	m_anime += 0.1f;
-	if (m_anime >= 8.0f) m_anime = 0.0f;
-
-	// 移動方向に応じたアニメーションの向きを設定（0:右歩き、1:左歩き）
-	m_dirID = (m_moveDirX > 0.0f) ? 0 : 1;
-
-	// 画面端（右端 600、左端 -600）に達したら反転する
-	if (m_playerpos.x >= 610.0f)
+	if (m_opeCnt == -1)
 	{
-		m_playerpos.x = 610.0f;
-		m_moveDirX = -1.0f; // 左へ反転
-	}
-	else if (m_playerpos.x <= -610.0f)
-	{
-		m_playerpos.x = -610.0f;
-		m_moveDirX = 1.0f;  // 右へ反転
+		// 座標を移動方向に進める
+		m_playerpos.x += m_moveDirX * m_speed;
+
+		// アニメーションのコマを進める（8コマ分ループ）
+		m_anime += 0.1f;
+		if (m_anime >= 8.0f) m_anime = 0.0f;
+
+		// 移動方向に応じたアニメーションの向きを設定（0:右歩き、1:左歩き）
+		m_dirID = (m_moveDirX > 0.0f) ? 0 : 1;
+
+		// 画面端（右端 600、左端 -600）に達したら反転する
+		if (m_playerpos.x >= 610.0f)
+		{
+			m_playerpos.x = 610.0f;
+			m_moveDirX = -1.0f; // 左へ反転
+		}
+		else if (m_playerpos.x <= -610.0f)
+		{
+			m_playerpos.x = -610.0f;
+			m_moveDirX = 1.0f;  // 右へ反転
+		}
 	}
 
 	// ==========================================
@@ -72,7 +75,7 @@ void TitleObj::Update()
 		{
 			m_opeCnt = 0;
 			auto se = KdAudioManager::Instance().Play("Asset/Sounds/Pera.wav", false);
-			if (se) se->SetVolume(0.1f);
+			if (se) se->SetVolume(0.05f);
 		}
 	}
 	else if (m_opeCnt == 0)
@@ -81,7 +84,7 @@ void TitleObj::Update()
 		{
 			m_opeCnt = 1;
 			auto se = KdAudioManager::Instance().Play("Asset/Sounds/Pera.wav", false);
-			if (se) se->SetVolume(0.1f);
+			if (se) se->SetVolume(0.05f);
 		}
 	}
 	else if (m_opeCnt == 1)
@@ -89,7 +92,7 @@ void TitleObj::Update()
 		if (GetAsyncKeyState(VK_RETURN) & 0x0001)
 		{
 			auto se = KdAudioManager::Instance().Play("Asset/Sounds/Pera.wav", false);
-			if (se) se->SetVolume(0.1f);
+			if (se) se->SetVolume(0.05f);
 			SceneManager::Instance().SetNextScene(SceneManager::SceneType::Game);
 		}
 	}
