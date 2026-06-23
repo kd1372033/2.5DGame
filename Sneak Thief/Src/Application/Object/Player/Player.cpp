@@ -7,19 +7,14 @@
 
 void Player::Init()
 {
-	// デバッグ用のポインタを実体化
 	m_pDebugWire = std::make_unique<KdDebugWireFrame>();
 
-	// 実体化
 	m_polygon = std::make_shared<KdSquarePolygon>();
 
-	// テクスチャの設定
 	m_polygon->SetMaterial("Asset/Textures/Player.png");
 
-	// 画像を分割
 	m_polygon->SetSplit(8, 6);
 
-	// 原点変更(真ん中→真ん中)
 	m_polygon->SetPivot(KdSquarePolygon::PivotType::Center_Bottom);
 
 	m_pos = { -10.25,-1.6,-1.75 };
@@ -34,7 +29,7 @@ void Player::Update()
 {
 	if (GetAsyncKeyState('A') & 0x0001)
 	{
-		m_showDebugWire = !m_showDebugWire; // フラグを反対にする
+		m_showDebugWire = !m_showDebugWire;
 	}
 
 	m_dir = { 0, 0, 0 }; // 初期化
@@ -243,7 +238,7 @@ void Player::PostUpdate()
 	if (hit == true)
 	{
 		// 当たっていたら当たった座標をプレイヤー座標にセット
-		m_pos = hitPos + Math::Vector3(0, -0.1, 0);
+		m_pos = hitPos + Math::Vector3(0.0f, -0.1f, 0.0f);
 		m_gravity = 0;	//重力を無効化
 	}
 
@@ -254,7 +249,7 @@ void Player::PostUpdate()
 	KdCollider::SphereInfo sphere;
 	// 球の中心座標
 	sphere.m_sphere.Center = m_pos;
-	sphere.m_sphere.Center.y += 0.27;
+	sphere.m_sphere.Center.y += 0.27f;
 	// 球の半径を設定
 	sphere.m_sphere.Radius = 0.25;
 	// 当たり判定をしたいタイプを設定

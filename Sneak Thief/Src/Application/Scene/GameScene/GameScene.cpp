@@ -16,7 +16,7 @@ void GameScene::Event()
 		bool nextState = !Enemy::GetShowDebugWire();
 		Enemy::SetShowDebugWire(nextState);
 	}
-	
+
 	if (GetAsyncKeyState('T') & 0x8000)
 	{
 		SceneManager::Instance().SetNextScene
@@ -42,6 +42,37 @@ void GameScene::Event()
 		if (m_player)
 		{
 			m_player->SetHasJewelry(true);
+		}
+	}
+
+	// プレイヤーのX座標が -6 以下になったらUIを非表示にする
+	// =============================================================
+	// ★ プレイヤーが一度でも指定位置を超えたら、キーUIを完全に消す
+	// =============================================================
+	if (m_player && m_UI)
+	{
+		// すでに一度でも超えたことがあるなら、常に非表示にする
+		if (m_hasHiddenKeyGuide)
+		{
+			m_UI->SetVisibleKeyGuide(false);
+		}
+		else
+		{
+			// 1フレーム目の「0.0f」のノイズを回避するため、
+			// 初期位置（-8.0f付近）より確実に右に動いた（例: -7.0f）かつ
+			// 座標がリセット状態（0.0fぴったり）ではない時だけ非表示フラグを立てる
+			float playerX = m_player->GetPos().x;
+
+			if (playerX >= -7.0f && playerX != 0.0f)
+			{
+				m_UI->SetVisibleKeyGuide(false);
+				m_hasHiddenKeyGuide = true;
+			}
+			else
+			{
+				// 初期位置にいる間、および1フレーム目のノイズ時は確実に表示する
+				m_UI->SetVisibleKeyGuide(true);
+			}
 		}
 	}
 
@@ -101,7 +132,7 @@ void GameScene::Init()
 	m_rooms.clear();
 
 	KdShaderManager::Instance().WorkAmbientController().SetFogEnable(true, false);
-	KdShaderManager::Instance().WorkAmbientController().SetDistanceFog({ 0,0,0 }, 0.45);
+	KdShaderManager::Instance().WorkAmbientController().SetDistanceFog({ 0.0f,0.0f,0.0f }, 0.3f);
 
 	m_camera = std::make_unique<KdCamera>();
 
@@ -170,4 +201,6 @@ void GameScene::Init()
 
 	m_UI = std::make_shared<GameUI>();
 	m_objList.push_back(m_UI);
+
+	m_hasHiddenKeyGuide = false;
 }

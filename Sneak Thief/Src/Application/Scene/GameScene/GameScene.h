@@ -31,4 +31,6 @@ private:
 	std::shared_ptr<GameUI> m_UI;
 
 	bool m_hasSpawnedEnemies = false;
+
+	bool m_hasHiddenKeyGuide = false;
 };

@@ -9,7 +9,7 @@ void GameUI::Init()
 	// 画面内の配置（例：矢印キーを左側、スペースキーを右側に並べる）
 	m_arrowbasepos = { 450.0f, -288.0f };
 	m_spacebasepos = { 0.0f, -320.0f }; 
-	m_jewelryPos = { -600.0f, -320.0f };
+	m_jewelryPos = { -600.0f, 320.0f };
 
 	// 初期アルファ値（最初は半透明）
 	m_alphaLeft = 0.3f;
@@ -17,6 +17,8 @@ void GameUI::Init()
 	m_alphaUp = 0.3f;
 	m_alphaDown = 0.3f;
 	m_alphaSpace = 0.3f; // ★追加
+
+	m_isVisibleKeyGuide = true;
 }
 
 void GameUI::Update()
@@ -58,79 +60,69 @@ void GameUI::DrawSprite()
 	// 常時薄っすら表示される土台カラー（アルファ値 0.3f 固定）
 	Math::Color baseColor(1.0f, 1.0f, 1.0f, 0.3f);
 
-
-
 	// =============================================================
-	// 矢印キー（凸型）の描画
+	// ★追加：表示フラグが true の時だけキーガイドを描画する
 	// =============================================================
-	KdShaderManager::Instance().m_spriteShader.SetMatrix(arrowbasemat);
-
-	// --- 左キー ---
+	if (m_isVisibleKeyGuide)
 	{
-		Math::Rectangle rc = { 0, 64, 64, 64 };
-		// ① まず常時表示の土台を描画 (0.3f)
-		KdShaderManager::Instance().m_spriteShader.DrawTex(&m_arrow, -64, -32, 64, 64, &rc, &baseColor);
+		// 矢印キー（凸型）の描画
+		KdShaderManager::Instance().m_spriteShader.SetMatrix(arrowbasemat);
 
-		// ② 押されているとき(1.0f)のみ、その上に重ねて描画（0.0fのときは描画しても透明で映らない）
-		if (m_alphaLeft > 0.0f) {
-			Math::Color keyColor(1.0f, 1.0f, 1.0f, m_alphaLeft);
-			KdShaderManager::Instance().m_spriteShader.DrawTex(&m_arrow, -64, -32, 64, 64, &rc, &keyColor);
+		// --- 左キー ---
+		{
+			Math::Rectangle rc = { 0, 64, 64, 64 };
+			KdShaderManager::Instance().m_spriteShader.DrawTex(&m_arrow, -64, -32, 64, 64, &rc, &baseColor);
+			if (m_alphaLeft > 0.0f) {
+				Math::Color keyColor(1.0f, 1.0f, 1.0f, m_alphaLeft);
+				KdShaderManager::Instance().m_spriteShader.DrawTex(&m_arrow, -64, -32, 64, 64, &rc, &keyColor);
+			}
 		}
-	}
 
-	// --- 下キー ---
-	{
-		Math::Rectangle rc = { 64, 64, 64, 64 };
-		KdShaderManager::Instance().m_spriteShader.DrawTex(&m_arrow, 0, -32, 64, 64, &rc, &baseColor);
-
-		if (m_alphaDown > 0.0f) {
-			Math::Color keyColor(1.0f, 1.0f, 1.0f, m_alphaDown);
-			KdShaderManager::Instance().m_spriteShader.DrawTex(&m_arrow, 0, -32, 64, 64, &rc, &keyColor);
+		// --- 下キー ---
+		{
+			Math::Rectangle rc = { 64, 64, 64, 64 };
+			KdShaderManager::Instance().m_spriteShader.DrawTex(&m_arrow, 0, -32, 64, 64, &rc, &baseColor);
+			if (m_alphaDown > 0.0f) {
+				Math::Color keyColor(1.0f, 1.0f, 1.0f, m_alphaDown);
+				KdShaderManager::Instance().m_spriteShader.DrawTex(&m_arrow, 0, -32, 64, 64, &rc, &keyColor);
+			}
 		}
-	}
 
-	// --- 右キー ---
-	{
-		Math::Rectangle rc = { 128, 64, 64, 64 };
-		KdShaderManager::Instance().m_spriteShader.DrawTex(&m_arrow, 64, -32, 64, 64, &rc, &baseColor);
-
-		if (m_alphaRight > 0.0f) {
-			Math::Color keyColor(1.0f, 1.0f, 1.0f, m_alphaRight);
-			KdShaderManager::Instance().m_spriteShader.DrawTex(&m_arrow, 64, -32, 64, 64, &rc, &keyColor);
+		// --- 右キー ---
+		{
+			Math::Rectangle rc = { 128, 64, 64, 64 };
+			KdShaderManager::Instance().m_spriteShader.DrawTex(&m_arrow, 64, -32, 64, 64, &rc, &baseColor);
+			if (m_alphaRight > 0.0f) {
+				Math::Color keyColor(1.0f, 1.0f, 1.0f, m_alphaRight);
+				KdShaderManager::Instance().m_spriteShader.DrawTex(&m_arrow, 64, -32, 64, 64, &rc, &keyColor);
+			}
 		}
-	}
 
-	// --- 上キー ---
-	{
-		Math::Rectangle rc = { 64, 0, 64, 64 };
-		KdShaderManager::Instance().m_spriteShader.DrawTex(&m_arrow, 0, 32, 64, 64, &rc, &baseColor);
-
-		if (m_alphaUp > 0.0f) {
-			Math::Color keyColor(1.0f, 1.0f, 1.0f, m_alphaUp);
-			KdShaderManager::Instance().m_spriteShader.DrawTex(&m_arrow, 0, 32, 64, 64, &rc, &keyColor);
+		// --- 上キー ---
+		{
+			Math::Rectangle rc = { 64, 0, 64, 64 };
+			KdShaderManager::Instance().m_spriteShader.DrawTex(&m_arrow, 0, 32, 64, 64, &rc, &baseColor);
+			if (m_alphaUp > 0.0f) {
+				Math::Color keyColor(1.0f, 1.0f, 1.0f, m_alphaUp);
+				KdShaderManager::Instance().m_spriteShader.DrawTex(&m_arrow, 0, 32, 64, 64, &rc, &keyColor);
+			}
 		}
-	}
 
-	// =============================================================
-	// スペースキーの描画
-	// =============================================================
-	KdShaderManager::Instance().m_spriteShader.SetMatrix(spacebasemat);
-	{
-		// ① 常時表示の土台を描画 (0.3f)
-		KdShaderManager::Instance().m_spriteShader.DrawTex(&m_space, 0, 0, 256, 64, nullptr, &baseColor);
-
-		// ② 押されているとき(1.0f)のみ重ねて描画
-		if (m_alphaSpace > 0.0f) {
-			Math::Color keyColor(1.0f, 1.0f, 1.0f, m_alphaSpace);
-			KdShaderManager::Instance().m_spriteShader.DrawTex(&m_space, 0, 0, 256, 64, nullptr, &keyColor);
+		// スペースキーの描画
+		KdShaderManager::Instance().m_spriteShader.SetMatrix(spacebasemat);
+		{
+			KdShaderManager::Instance().m_spriteShader.DrawTex(&m_space, 0, 0, 256, 64, nullptr, &baseColor);
+			if (m_alphaSpace > 0.0f) {
+				Math::Color keyColor(1.0f, 1.0f, 1.0f, m_alphaSpace);
+				KdShaderManager::Instance().m_spriteShader.DrawTex(&m_space, 0, 0, 256, 64, nullptr, &keyColor);
+			}
 		}
-	}
+	} // ★ここまでを if (m_isVisibleKeyGuide) で囲む
 
+	// 宝石アイコン（キーガイドが消えても、こちらは連動せずに独自のフラグで管理）
 	if (m_isDrawJewelry)
 	{
 		KdShaderManager::Instance().m_spriteShader.SetMatrix(m_jewelryMat);
-
-		// ※ 64, 64 の部分は実際のアイコン画像のサイズに合わせて調整してください
 		KdShaderManager::Instance().m_spriteShader.DrawTex(&m_jewelryIcon, 0, 0, 64, 64);
 	}
 

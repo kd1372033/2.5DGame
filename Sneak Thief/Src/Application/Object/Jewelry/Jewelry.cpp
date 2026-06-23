@@ -75,6 +75,22 @@ void Jewelry::DrawLit()
 	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_polygon, m_mWorld, color);
 }
 
+void Jewelry::GenerateDepthMapFromLight()
+{
+	// アルファ値が 0 になったら影の描画自体を完全にスキップする
+	if (m_alpha <= 0.0f) return;
+
+	Math::Color color = { 1.0f,1.0f,1.0f,m_alpha };
+
+	// ★重要：影用シェーダーのブレンドモードをAlpha（半透明）に対応させる
+	KdShaderManager::Instance().ChangeBlendState(KdBlendState::Alpha);
+
+	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_polygon, m_mWorld, color);
+
+	// 後始末（通常の状態に戻す）
+	KdShaderManager::Instance().UndoBlendState();
+}
+
 void Jewelry::DrawBright()
 {
 	Math::Color color = { 1.0f,1.0f,1.0f,m_alpha };

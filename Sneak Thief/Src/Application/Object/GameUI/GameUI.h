@@ -13,6 +13,8 @@ public:
 
 	// ★追加：外部（GameScene）からフラグを切り替えるための関数
 	void SetVisibleJewelry(bool isVisible) { m_isDrawJewelry = isVisible; }
+	// ある程度進んだらキーが消える
+	void SetVisibleKeyGuide(bool visible) { m_isVisibleKeyGuide = visible; }
 
 
 private:
@@ -36,5 +38,7 @@ private:
 	Math::Matrix m_jewelryMat;  // ★追加：宝石UI用の行列
 
 	bool m_isDrawJewelry = false; // ★追加：表示フラグ（初期値はfalse）
+
+	bool m_isVisibleKeyGuide = true;
 
 };
