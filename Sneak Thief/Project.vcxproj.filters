@@ -109,6 +109,9 @@
     <Filter Include="Src\Application\Object\GameUI">
       <UniqueIdentifier>{fbd28381-2c43-43f6-a647-053a6621e512}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Application\Object\Desk">
+      <UniqueIdentifier>{d427ed69-ca44-474d-9f4c-723b0d47da90}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Pch.h">

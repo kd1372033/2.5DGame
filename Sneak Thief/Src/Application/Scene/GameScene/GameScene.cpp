@@ -6,6 +6,7 @@
 #include "../../Object/Enemy/Enemy.h"
 #include "../../Object/Jewelry/Jewelry.h"
 #include "../../Object/GameUI/GameUI.h"
+#include "../../Object/Item/Item.h"
 
 
 void GameScene::Event()
@@ -93,19 +94,19 @@ void GameScene::Event()
 	}
 
 	// カメラの追従・クランプ計算
-	Math::Vector3 targetCamPos = Math::Vector3{ 0, 0.75, -2.25 } + Math::Vector3{ m_player->GetPos().x, m_player->GetPos().y, -1.75 };
+	Math::Vector3 targetCamPos = Math::Vector3{ 0, 1.75, -0.25 } + Math::Vector3{ m_player->GetPos().x, m_player->GetPos().y, m_player->GetPos().z - (float)1.75 };
 
-	float minX = -8.2f;    // ステージの左端の限界
-	float maxX = 8.0f;     // ステージの右端の限界
+	float minX = -100.0f;    // ステージの左端の限界
+	float maxX = 100.0f;     // ステージの右端の限界
 	float minY = 0.0f;     // ステージの下端の限界
-	float maxY = 0.3f;     // ステージの上端の限界
+	float maxY = 100.3f;     // ステージの上端の限界
 
 	targetCamPos.x = std::clamp(targetCamPos.x, minX, maxX);
 	targetCamPos.y = std::clamp(targetCamPos.y, minY, maxY);
 
 	// 移動行列と回転行列を合成してカメラにセット
 	Math::Matrix transmat = Math::Matrix::CreateTranslation(targetCamPos);
-	Math::Matrix rotmat = Math::Matrix::CreateRotationX(DirectX::XMConvertToRadians(20));
+	Math::Matrix rotmat = Math::Matrix::CreateRotationX(DirectX::XMConvertToRadians(30));
 	m_camera->SetCameraMatrix(rotmat * transmat);
 }
 
@@ -136,14 +137,17 @@ void GameScene::Init()
 
 	m_camera = std::make_unique<KdCamera>();
 
+	m_player = std::make_shared<Player>();
+	m_objList.push_back(m_player);
+
 	std::shared_ptr<Ground> ground = std::make_shared<Ground>();
 	m_objList.push_back(ground);
+	ground->SetPlayer(m_player);
 
 	std::shared_ptr<Back> back = std::make_shared<Back>();
 	m_objList.push_back(back);
 
-	m_player = std::make_shared<Player>();
-	m_objList.push_back(m_player);
+	
 
 	// =============================================================
 	// 全部屋の出現座標データを登録
@@ -194,6 +198,26 @@ void GameScene::Init()
 	enemy->SetPos(m_rooms[2].spawnPositions[0]);
 	m_objList.push_back(enemy);
 
+	// =============================================================
+	// ★ ステージ上に落ちている投擲アイテムの生成・配置
+	// =============================================================
+	// 配置したい座標のリスト
+	std::vector<Math::Vector3> itemPositions = {
+		/*{-5.0f, -1.6f, -1.0f},
+		{ -2.5f, -1.6f, -1.5f },
+		{  0.0f, -1.6f, -0.8f },
+		{  3.0f, -1.6f, -1.2f },
+		{  5.5f, -1.6f, -1.8f }*/
+		{ 0.0f,1.0f,0.0f },
+	};
+
+	for (const auto& pos : itemPositions)
+	{
+		auto item = std::make_shared<Item>();
+		item->Init();
+		item->SetPos(pos); // アイテムの出現位置をセット
+		m_objList.push_back(item);
+	}
 
 	std::shared_ptr<Jewelry> jewelry = std::make_shared<Jewelry>();
 	jewelry->SetTargetPlayer(m_player);

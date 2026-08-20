@@ -17,8 +17,9 @@ void Player::Init()
 
 	m_polygon->SetPivot(KdSquarePolygon::PivotType::Center_Bottom);
 
-	m_pos = { -10.25,-1.6,-1.75 };
+	//m_pos = { -10.25,-1.6,-1.75 };
 	//m_pos = { 0,-1.6,-1.75 };
+	m_pos = { 0.0f,0.0f,-2.90f };
 
 	// 当たり判定登録
 	m_pCollider = std::make_unique<KdCollider>();
@@ -115,59 +116,70 @@ void Player::Update()
 		m_polygon->SetUVRect(Wait[m_dirID][WaitFrame]);
 	}
 
-	// アイテム投げ
-	static bool s_isThrowKeyPressed = false;
+	// =========================================================
+	// アイテムの「拾う」と「投げる」の入力処理
+	// =========================================================
 
+	// =========================================================
+	// 自動拾い処理（持っていない時は常に接触チェック）
+	// =========================================================
+	if (!m_pHeldItem)
+	{
+		PickUpItem();
+	}
+
+	// =========================================================
+	// アイテム投げ（スペースキー）
+	// =========================================================
+	static bool s_isThrowKeyPressed = false;
 	bool isCurrentKeyPress = (GetAsyncKeyState(VK_SPACE) & 0x8000) != 0;
 
 	if (isCurrentKeyPress)
 	{
-		// 前のフレームで押されていなかった（＝今まさに押された瞬間）
 		if (!s_isThrowKeyPressed)
 		{
-			// SEを単発再生
-			auto se = KdAudioManager::Instance().Play("Asset/Sounds/Throw.wav", false);
-			if (se) {
-				se->SetVolume(0.05f);
+			if (m_pHeldItem)
+			{
+				auto se = KdAudioManager::Instance().Play("Asset/Sounds/Throw.wav", false);
+				if (se) {
+					se->SetVolume(0.05f);
+				}
+
+				ThrowItem();
 			}
 
-			// アイテム投擲処理
-			ThrowItem();
-
-			// フラグを立てて、押しっぱなし状態であることを記録
 			s_isThrowKeyPressed = true;
 		}
 	}
 	else
 	{
-		// キーが離されたらフラグをリセット
 		s_isThrowKeyPressed = false;
 	}
 
 	// 端判定
-	if (m_pos.z <= -2.25f)
-	{
-		m_pos.z = -2.25f;
-	}
-	if (m_pos.z >= -0.3f)
-	{
-		m_pos.z = -0.3f;
-	}
-	if (m_pos.x <= -11.0f)
-	{
-		m_pos.x = -11.0f;
-		if (m_hasJewelry)
-		{
-			// ★【修正】リザルトへ移行するので、プレイヤーの足音を確実に止める
-			if (m_walkSound && m_walkSound->IsPlaying())
-			{
-				m_walkSound->Stop();
-			}
+	//if (m_pos.z <= -2.25f)
+	//{
+	//	m_pos.z = -2.25f;
+	//}
+	//if (m_pos.z >= -0.3f)
+	//{
+	//	m_pos.z = -0.3f;
+	//}
+	//if (m_pos.x <= -11.0f)
+	//{
+	//	m_pos.x = -11.0f;
+	//	if (m_hasJewelry)
+	//	{
+	//		// ★【修正】リザルトへ移行するので、プレイヤーの足音を確実に止める
+	//		if (m_walkSound && m_walkSound->IsPlaying())
+	//		{
+	//			m_walkSound->Stop();
+	//		}
 
-			SceneManager::Instance().SetClearFlag(true);
-			SceneManager::Instance().SetNextScene(SceneManager::SceneType::Result);
-		}
-	}
+	//		SceneManager::Instance().SetClearFlag(true);
+	//		SceneManager::Instance().SetNextScene(SceneManager::SceneType::Result);
+	//	}
+	//}
 	//重力
 	m_pos.y -= m_gravity;
 	m_gravity += 0.005f;
@@ -178,57 +190,48 @@ void Player::Update()
 	m_mWorld = scalemat * transmat;
 }
 
+
+
 void Player::PostUpdate()
 {
-	// 当たり判定(レイ判定)
-
-	// 当たり判定を実装するときは「当たる側」「当たられる側」が存在する
-	// プレイヤーは「当たる側」の判定
-
 	// ==============
-	//	レイ判定
+	//	レイ判定（着地・高さ調整）
 	// ==============
-	// レイ判定用の変数を作成
 	KdCollider::RayInfo ray;
-	// レイの発射位置を設定
+
+	// ★ 足元より少し上から発射
+	float enableStepHigh = 0.5f;
 	ray.m_pos = m_pos;
-	// ちょっと上からの位置にする
-	//ray.m_pos.y += 0.1;
-	// 
-	float enableStepHigh = 0.2f;
 	ray.m_pos.y += enableStepHigh;
 
-	// レイの発射方向を設定
-	ray.m_dir = { 0, -1, 0 };
-	// レイの長さを設定
-	ray.m_range = m_gravity + enableStepHigh;
-	// 当たり判定をしたいタイプを設定
-	ray.m_type = KdCollider::TypeGround;
-	// デバッグ
-	//m_pDebugWire->AddDebugLine(ray.m_pos, ray.m_dir, ray.m_range);
+	ray.m_dir = { 0, -1, 0 }; // 真下
 
-	// レイに当たったオブジェクト情報を格納するリスト
+	// ★ 判定距離を十分に持たせる
+	ray.m_range = enableStepHigh + m_gravity + 0.2f;
+	ray.m_type = KdCollider::TypeGround;
+
+	if (m_showDebugWire)
+	{
+		m_pDebugWire->AddDebugLine(ray.m_pos, ray.m_dir, ray.m_range);
+	}
+
 	std::list<KdCollider::CollisionResult> retRayList;
-	// 全オブジェクトと当たり判定を行う
 	for (auto& obj : SceneManager::Instance().GetObjList())
 	{
+		if (obj.get() == this) continue; // 自分自身を除外
 		if (std::dynamic_pointer_cast<Item>(obj)) continue;
-		// レイと当たり判定!!!!!!
+
 		obj->Intersects(ray, &retRayList);
 	}
 
-	// レイに当たったリストから一番近いオブジェクトを探す
-	// どうやってわかる？→一番遠い距離からの余りを算出して比較する
-	//		↓レイの時は余った長さ
-	float maxOverLap = 0;	// 初期化！
+	float maxOverLap = 0;
 	Math::Vector3 hitPos;
-	bool hit = false;		// 初期化！
+	bool hit = false;
+
 	for (auto& ret : retRayList)
 	{
-		// レイを遮断しオーバーした長さが一番長いものを探す
 		if (maxOverLap < ret.m_overlapDistance)
 		{
-			// 更新
 			maxOverLap = ret.m_overlapDistance;
 			hitPos = ret.m_hitPos;
 			hit = true;
@@ -237,52 +240,49 @@ void Player::PostUpdate()
 
 	if (hit == true)
 	{
-		// 当たっていたら当たった座標をプレイヤー座標にセット
-		m_pos = hitPos + Math::Vector3(0.0f, -0.1f, 0.0f);
-		m_gravity = 0;	//重力を無効化
+		// ★【一番の修正ポイント！】
+		// 1. hitPos.y（地面の高さ）をそのまます直代入する（-0.1f などのオフセットは入れない！）
+		// 2. X, Z 座標はプレイヤー自身の移動位置を維持する（hitPosで上書きしない）
+		m_pos.y = hitPos.y;
+
+		// 着地したので重力をリセット
+		m_gravity = 0;
 	}
 
 	// ==============
-	//	球(スフィア)判定
+	//	球(スフィア)判定（壁・障害物との横方向の押し戻し）
 	// ==============
-	// 球判定用の変数を作成
 	KdCollider::SphereInfo sphere;
-	// 球の中心座標
 	sphere.m_sphere.Center = m_pos;
 	sphere.m_sphere.Center.y += 0.27f;
-	// 球の半径を設定
-	sphere.m_sphere.Radius = 0.25;
-	// 当たり判定をしたいタイプを設定
+	sphere.m_sphere.Radius = 0.1f;
+
+	// ★【重要ポイント！】
+	// スフィア判定の対象を TypeGround ではなく TypeBump（壁や障壁）のみにする。
+	// これにより、床ポリゴンの対角線や継ぎ目で押し戻される現象が完全に無くなります！
+	//sphere.m_type = KdCollider::Type::TypeBump;
 	sphere.m_type = KdCollider::Type::TypeGround;
 
-	// デバッグ
-	if (m_showDebugWire == true)
+	if (m_showDebugWire)
 	{
 		m_pDebugWire->AddDebugSphere(sphere.m_sphere.Center, sphere.m_sphere.Radius);
 	}
 
-	// 球に当たったオブジェクト情報を格納するリスト
 	std::list<KdCollider::CollisionResult> retSphereList;
-	// 全オブジェクトと当たり判定を行う
 	for (auto& obj : SceneManager::Instance().GetObjList())
 	{
-		// 球と当たり判定!!!!!!
+		if (obj.get() == this) continue;
 		obj->Intersects(sphere, &retSphereList);
 	}
 
-	// 球に当たったリストから一番近いオブジェクトを探す！
-	//	↓こいつ　レイ判定の時に宣言してるので使いまわす
-	maxOverLap = 0;	// 球の時はめり込んだ長さ
-	//	↓こいつ　レイ判定の時に宣言してるので使いまわす
+	maxOverLap = 0;
 	hit = false;
-	// 当たった方向を格納する変数
 	Math::Vector3 hitDir;
+
 	for (auto& ret : retSphereList)
 	{
-		// 球にめり込んだ長さが一番長いものを探す
 		if (maxOverLap < ret.m_overlapDistance)
 		{
-			// 更新
 			maxOverLap = ret.m_overlapDistance;
 			hitDir = ret.m_hitDir;
 			hit = true;
@@ -291,15 +291,16 @@ void Player::PostUpdate()
 
 	if (hit == true)
 	{
-		// Z方向への押し戻し無効
-		hitDir.z = 0;
-		// 正規化（長さを１にする）
+		// 壁からの押し戻し処理（Y方向の押し戻しは無効化して水平移動のみにする）
+		hitDir.y = 0.0f;
 		hitDir.Normalize();
-		// 押し戻し処理			↓めり込んだ長さ
 		m_pos += hitDir * maxOverLap;
-		//		↑当たった方向(方向ベクトルは長さ１)
 	}
 
+	// 最終位置を反映して行列を再更新
+	Math::Matrix scalemat = Math::Matrix::CreateScale(0.5f);
+	Math::Matrix transmat = Math::Matrix::CreateTranslation(m_pos);
+	m_mWorld = scalemat * transmat;
 }
 
 void Player::GenerateDepthMapFromLight()
@@ -309,35 +310,83 @@ void Player::GenerateDepthMapFromLight()
 
 void Player::DrawLit()
 {
-	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_polygon, m_mWorld);
+	// プレイヤーモデル / ポリゴンの描画
+	if (m_polygon)
+	{
+		KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_polygon, m_mWorld);
+	}
 }
 
-// プレイヤー側の攻撃・投擲処理のイメージ
+void Player::DrawUnLit()
+{
+	// ★ Zテスト（深度判定）のみを無効化し、ZWriteはそのままにする
+	KdShaderManager::Instance().ChangeDepthStencilState(KdDepthStencilState::ZDisable);
+
+	// プレイヤーモデル / ポリゴンの描画
+	if (m_polygon)
+	{
+		KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_polygon, m_mWorld);
+	}
+
+	// ステートを戻す
+	KdShaderManager::Instance().UndoDepthStencilState();
+}
+
+// =========================================================
+// 投げる処理の修正（生成から所持アイテムの放擲へ変更）
+// =========================================================
 void Player::ThrowItem()
 {
-	auto newItem = std::make_shared<Item>();
-	newItem->Init();
+	if (!m_pHeldItem) return;
 
-	// 1. 座標のセット（キャラクターの手元付近から投げるため、Y座標を少し上げる）
-	Math::Vector3 throwStartPos = m_pos;
-	throwStartPos.y += 0.4f; // お腹・手元の高さに調整
-	newItem->SetPos(throwStartPos);
-
-	// 2. 向き（m_dir）のセット
-	// 移動入力がない時でも、現在の「向いている方向(m_dirID)」から正しいベクトルを作って渡す
+	// 1. 向いている方向（m_dirID）からベクトルを作成
 	Math::Vector3 throwDir = { 0.0f, 0.0f, 0.0f };
 	switch (m_dirID)
 	{
-	case 0: throwDir.z = -1.0f; break; // 下（手前）を向いている時
-	case 1: throwDir.x = -1.0f; break; // 左を向いている時
-	case 2: throwDir.x = 1.0f; break; // 右を向いている時
-	case 3: throwDir.z = 1.0f; break; // 上（奥）を向いている時
+	case 0: throwDir.z = -1.0f; break; // 下
+	case 1: throwDir.x = -1.0f; break; // 左
+	case 2: throwDir.x = 1.0f; break;  // 右
+	case 3: throwDir.z = 1.0f; break;  // 上
 	}
-	newItem->SetDir(throwDir);
 
-	// 3. 投げる処理を起動
-	newItem->StartThrow();
+	// 2. 所持しているアイテムの向きを設定して投げる
+	m_pHeldItem->SetDir(throwDir);
+	m_pHeldItem->StartThrow(); // 引数で throwDir を渡す設計にしてもOK
 
-	// 4. ★【超重要】シーンにオブジェクトを登録（これで Update や PostUpdate が動くようになります）
-	SceneManager::Instance().AddObject(newItem);
+	// 3. プレイヤーの手元から離す（参照を解除）
+	m_pHeldItem = nullptr;
+}
+
+// =========================================================
+// 拾う処理の実装
+// =========================================================
+void Player::PickUpItem()
+{
+	// シーン上の全オブジェクトから「拾えるItem」を探す
+	for (auto& obj : SceneManager::Instance().GetObjList())
+	{
+		auto item = std::dynamic_pointer_cast<Item>(obj);
+		if (!item) continue;
+
+		// 既に持たれている、または投げられて飛行中のアイテムは拾わない
+		if (item->IsHeld() || item->IsThrown()) continue;
+
+		// プレイヤーとアイテムの距離を計算（重なった判定：0.4〜0.5m程度）
+		float dist = (item->GetPos() - m_pos).Length();
+
+		// 重なったら自動で拾う
+		if (dist <= 0.15f)
+		{
+			m_pHeldItem = item;
+			m_pHeldItem->PickUp(std::dynamic_pointer_cast<Player>(shared_from_this()));
+
+			// 拾った時のSEなどを鳴らす場合はここに追加
+			auto se = KdAudioManager::Instance().Play("Asset/Sounds/Get.wav", false);
+			if (se) {
+				se->SetVolume(0.1f);
+			}
+
+			break; // 1つ拾ったら終了
+		}
+	}
 }

@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+class Item;
+
 class Player : public KdGameObject
 {
 public:
@@ -11,7 +13,9 @@ public:
 	void PostUpdate()	override;
 	void GenerateDepthMapFromLight()override;
 	void DrawLit()		override;
-
+	void DrawUnLit()		override;
+	
+	void PickUpItem(); // 拾う処理を追加
 	void ThrowItem();
 
 	void SetHasJewelry(bool _flag)
@@ -51,5 +55,7 @@ private:
 	bool m_hasJewelry = false; // 宝石を獲得したか？
 
 	bool m_showDebugWire = false;
+
+	std::shared_ptr<Item> m_pHeldItem = nullptr;
 
 };

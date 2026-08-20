@@ -1,6 +1,6 @@
 ﻿#include "Item.h"
-#include "../Player/Player.h" 
-#include "../Enemy/Enemy.h"   
+#include "../Player/Player.h"
+#include "../Enemy/Enemy.h"
 
 void Item::Init()
 {
@@ -12,49 +12,76 @@ void Item::Init()
 
 	m_pos = { 0.0f, 0.0f, 0.0f };
 	m_vec = { 0.0f, 0.0f, 0.0f };
+	m_dir = { 0.0f, 0.0f, 0.0f };
 	m_isThrown = false;
+	m_isHeld = false;
 	m_hitRadius = 1.5f;
-	m_throwSafetyTimer = 0.0f; // タイマー初期化
-		
-	// 当たり判定登録
+	m_throwSafetyTimer = 0.0f;
+	m_pickUpCooldown = 0.2f; // 初期値として0.2秒をセット
+
 	m_pCollider = std::make_unique<KdCollider>();
 	m_pCollider->RegisterCollisionShape("Item", { 0,0,0 }, m_hitRadius, KdCollider::Type::TypeSight);
 }
 
+// 拾われた時の処理
+void Item::PickUp(std::shared_ptr<Player> pOwner)
+{
+	m_isHeld = true;
+	m_isThrown = false;
+	m_wpOwner = pOwner;
+	m_vec = { 0.0f, 0.0f, 0.0f };
+}
+
+// 方向を指定して投げる
+void Item::StartThrow(const Math::Vector3& dir)
+{
+	m_dir = dir;
+	StartThrow();
+}
+
+// 投擲開始処理
 void Item::StartThrow()
 {
+	m_isHeld = false;
 	m_isThrown = true;
-	m_throwSafetyTimer = 0.15f; // 投げてから0.15秒間（約9フレーム）は地面判定を絶対にしない無敵時間
+	m_throwSafetyTimer = 0.15f; // 安全タイマー
 
-	// 速度(m_vec)の初速を決める
-	m_vec.x = 0.06f * m_dir.x;
-	m_vec.y = 0.03f;           // 縦への打ち上げ力
+	// 初速の設定
+	m_vec.x = 0.08f * m_dir.x;
+	m_vec.y = 0.03f; // 打ち上げ力
 	m_vec.z = 0.06f * m_dir.z;
 
-	// 行列の先行確定
+	// 行列計算
 	Math::Matrix scalemat = Math::Matrix::CreateScale(0.125f);
 	Math::Matrix transmat = Math::Matrix::CreateTranslation(m_pos);
 	m_mWorld = scalemat * transmat;
-
 }
 
 void Item::Update()
 {
-	// =========================================================
-	// Updateでは純粋な移動計算（放物線）のみを行う！
-	// =========================================================
-	if (m_isThrown)
+	// 拾いタイマーをカウントダウン
+	if (m_pickUpCooldown > 0.0f)
 	{
-		// 1. 速度のY成分に重力を足す
+		m_pickUpCooldown -= 1.0f / 60.0f;
+	}
+	// 1. 手に持たれている時はプレイヤーの位置に追従
+	if (m_isHeld)
+	{
+		auto owner = m_wpOwner.lock();
+		if (owner)
+		{
+			m_pos = owner->GetPos();
+			m_pos.y += 0.125f; // プレイヤーの頭上・手元の高さに調整
+		}
+	}
+	// 2. 投げられている時は放物線移動
+	else if (m_isThrown)
+	{
 		m_vec.y += gravity;
-
-		// 2. 速度を現在の座標に加算する
 		m_pos += m_vec;
 	}
 
-	// =========================================================
 	// ワールド行列の更新
-	// =========================================================
 	Math::Matrix scalemat = Math::Matrix::CreateScale(0.125f);
 	Math::Matrix transmat = Math::Matrix::CreateTranslation(m_pos);
 	m_mWorld = scalemat * transmat;
@@ -62,31 +89,77 @@ void Item::Update()
 
 void Item::PostUpdate()
 {
-	// 安全タイマーのカウントダウン（1フレームずつ減らす）
+	if (m_isHeld) return;
+
 	if (m_throwSafetyTimer > 0.0f)
 	{
 		m_throwSafetyTimer -= 1.0f / 60.0f;
 	}
 
 	// =========================================================
-	// レイ判定による自動着地システム
+	// 1. 一体型ステージモデルに対する「壁判定＆跳ね返り」
 	// =========================================================
-	// 条件：投げられていて、落下中で、安全タイマーが終了している時のみ
-	if (m_isThrown && m_vec.y < 0.0f && m_throwSafetyTimer <= 0.0f)
+	if (m_isThrown)
+	{
+		KdCollider::SphereInfo bumpSphere;
+		bumpSphere.m_sphere.Center = m_pos;
+		bumpSphere.m_sphere.Center.y += 0.1f;
+		bumpSphere.m_sphere.Radius = 0.15f;
+		bumpSphere.m_type = KdCollider::TypeGround; // ステージモデルと同じ TypeGround を指定
+
+		std::list<KdCollider::CollisionResult> retBumpList;
+
+		for (auto& obj : SceneManager::Instance().GetObjList())
+		{
+			if (obj.get() == this) continue;
+			if (std::dynamic_pointer_cast<Player>(obj)) continue;
+
+			obj->Intersects(bumpSphere, &retBumpList);
+		}
+
+		for (auto& ret : retBumpList)
+		{
+			Math::Vector3 hitDir = ret.m_hitDir;
+
+			// 【重要】Y成分の絶対値が小さい（垂直に近い面）場合のみ「壁」とみなして跳ね返す
+			// ※ Y成分が大きい面は「床」なので、ここでは跳ね返さず下の着地レイキャストに任せる
+			if (fabsf(hitDir.y) < 0.6f)
+			{
+				hitDir.y = 0.0f; // 水平方向のみに補正
+				hitDir.Normalize();
+
+				// 壁へのめり込み解除
+				m_pos += hitDir * ret.m_overlapDistance;
+
+				float dot = m_vec.Dot(hitDir);
+				if (dot < 0.0f)
+				{
+					// 壁に対して速度を反射させる
+					m_vec = m_vec - 2.0f * dot * hitDir;
+
+					// 跳ね返り時の減衰（60%に勢いを落とす）
+					m_vec.x *= 0.8f;
+					m_vec.z *= 0.8f;
+				}
+				break; // 1つの壁面と当たったら抜ける
+			}
+		}
+	}
+
+	// =========================================================
+	// 2. 地面（床面）への着地判定
+	// =========================================================
+	if (m_isThrown && m_vec.y <= 0.0f && m_throwSafetyTimer <= 0.0f)
 	{
 		KdCollider::RayInfo ray;
 		ray.m_pos = m_pos;
-		ray.m_pos.y += 0.1f;
+		ray.m_pos.y += 0.2f;
 		ray.m_dir = { 0.0f, -1.0f, 0.0f };
-		ray.m_range = 0.25f;
+		ray.m_range = 0.2f + fabsf(m_vec.y) + 0.1f; // 落下速度に応じた可変レイ長
 		ray.m_type = KdCollider::TypeGround;
-
-		// デバッグ用に下向きのレイを描画（赤色）
-		//m_pDebugWire->AddDebugLine(ray.m_pos, ray.m_dir, ray.m_range, kRedColor);
 
 		std::list<KdCollider::CollisionResult> retRayList;
 
-		// 全オブジェクトと当たり判定を行う
 		for (auto& obj : SceneManager::Instance().GetObjList())
 		{
 			if (obj.get() == this) continue;
@@ -109,14 +182,12 @@ void Item::PostUpdate()
 			}
 		}
 
-		// 地面にヒットしていたら着地処理
 		if (hit)
 		{
-			m_pos = hitPos;               // 正確な地面の高さ（-1.6f付近）に座標を固定
-			m_vec = { 0.0f, 0.0f, 0.0f }; // 速度を完全にゼロにする
-			m_isThrown = false;           // 投げ状態を終了してその場に留まらせる
+			m_pos = hitPos;               // 地面の高さに固定
+			m_vec = { 0.0f, 0.0f, 0.0f }; // 速度リセット
+			m_isThrown = false;           // 着地（投げ状態終了）
 
-			// 行列も即時反映
 			Math::Matrix scalemat = Math::Matrix::CreateScale(0.125f);
 			Math::Matrix transmat = Math::Matrix::CreateTranslation(m_pos);
 			m_mWorld = scalemat * transmat;
@@ -124,17 +195,13 @@ void Item::PostUpdate()
 	}
 
 	// =========================================================
-	// 敵の索敵判定
+	// 3. 敵の索敵判定（既存処理）
 	// =========================================================
 	KdCollider::SphereInfo searchSphere;
 	searchSphere.m_sphere.Center = m_pos;
-	searchSphere.m_sphere.Radius = 0.25f; // 半径 2.5 メートル（固定値に変更）
+	searchSphere.m_sphere.Radius = 0.25f;
 	searchSphere.m_type = KdCollider::Type::TypeGround;
 
-	// デバッグ用：索敵範囲を「緑色」または「黄色」の球で描画
-	//m_pDebugWire->AddDebugSphere(searchSphere.m_sphere.Center, searchSphere.m_sphere.Radius, kGreenColor);
-
-	// 全オブジェクトの中から「敵」を探す
 	for (auto& obj : SceneManager::Instance().GetObjList())
 	{
 		auto enemy = std::dynamic_pointer_cast<Enemy>(obj);
@@ -144,7 +211,7 @@ void Item::PostUpdate()
 			if (enemy->Intersects(searchSphere, &retList))
 			{
 				enemy->SetTargetItem(shared_from_this());
-				enemy->AttractTo(m_pos); // 敵が近づく
+				enemy->AttractTo(m_pos);
 			}
 		}
 	}

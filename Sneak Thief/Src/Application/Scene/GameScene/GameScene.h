@@ -13,6 +13,7 @@ public:
 private:
 	void Event() override;
 	void Init()  override;
+	
 
 	// =============================================================
 	// ★ 出現管理用の構造体と関数を追加
