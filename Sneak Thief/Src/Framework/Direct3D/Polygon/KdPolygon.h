@@ -48,6 +48,9 @@ public:
 	bool Is2DObject() const { return m_2DObject; }
 	void Set2DObject(bool is2DObject) { m_2DObject = is2DObject; }
 
+	//8/22追加
+	void SetVertices(const std::vector<Vertex>& vertices) { m_vertices = vertices; }
+
 protected:
 
 	// ポリゴンに描画するテクスチャ

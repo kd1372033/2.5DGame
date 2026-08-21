@@ -11,29 +11,29 @@ void Ground::Init()
 
 	m_pCollider = std::make_unique<KdCollider>();
 
-	// モデル読み込み
+	// ★ TypeGround と TypeBump を両方登録する（壁としても認識させる）
 	m_front = std::make_shared<KdModelData>();
 	if (m_front->Load("Asset/Models/Stagea/Front.gltf"))
 	{
-		m_pCollider->RegisterCollisionShape("Front", m_front, KdCollider::Type::TypeGround);
+		m_pCollider->RegisterCollisionShape("Front", m_front, KdCollider::TypeGround | KdCollider::TypeBump);
 	}
 
 	m_stage1 = std::make_shared<KdModelData>();
 	if (m_stage1->Load("Asset/Models/Stagea/Stage1.gltf"))
 	{
-		m_pCollider->RegisterCollisionShape("Stage1", m_stage1, KdCollider::Type::TypeGround);
+		m_pCollider->RegisterCollisionShape("Stage1", m_stage1, KdCollider::TypeGround | KdCollider::TypeBump);
 	}
 
 	m_stage2 = std::make_shared<KdModelData>();
 	if (m_stage2->Load("Asset/Models/Stagea/Stage2.gltf"))
 	{
-		m_pCollider->RegisterCollisionShape("Stage2", m_stage2, KdCollider::Type::TypeGround);
+		m_pCollider->RegisterCollisionShape("Stage2", m_stage2, KdCollider::TypeGround | KdCollider::TypeBump);
 	}
 
 	m_stage3 = std::make_shared<KdModelData>();
 	if (m_stage3->Load("Asset/Models/Stagea/Stage3.gltf"))
 	{
-		m_pCollider->RegisterCollisionShape("Stage3", m_stage3, KdCollider::Type::TypeGround);
+		m_pCollider->RegisterCollisionShape("Stage3", m_stage3, KdCollider::TypeGround | KdCollider::TypeBump);
 	}
 }
 
@@ -143,87 +143,3 @@ void Ground::DrawUnLit()
 	KdShaderManager::Instance().UndoDepthStencilState();
 	KdShaderManager::Instance().UndoBlendState();
 }
-
-//void Ground::Update()
-//{
-//	// アクティブ部屋：完全不透明
-//	const Math::Color activeColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-//
-//	// 非アクティブ部屋：原色のままアルファ値だけ下げる（黒く潰れるのを防止）
-//	const Math::Color inactiveColor = { 0.3f, 0.3f, 0.3f, 0.5f };
-//
-//	auto spPlayer = m_wpPlayer.lock();
-//
-//	if (!spPlayer)
-//	{
-//		m_frontColor = activeColor;
-//		m_stage1Color = activeColor;
-//		m_stage2Color = activeColor;
-//		m_stage3Color = activeColor;
-//		return;
-//	}
-//
-//	float playerZ = spPlayer->GetPos().z;
-//
-//	// Z軸判定
-//	if (playerZ <= -2.25f)
-//	{
-//		m_frontColor = activeColor;
-//		m_stage1Color = inactiveColor;
-//		m_stage2Color = inactiveColor;
-//		m_stage3Color = inactiveColor;
-//	}
-//	else if (playerZ <= 0.2f)
-//	{
-//		m_frontColor = inactiveColor;
-//		m_stage1Color = activeColor;
-//		m_stage2Color = inactiveColor;
-//		m_stage3Color = inactiveColor;
-//	}
-//	else if (playerZ <= 2.7f)
-//	{
-//		m_frontColor = inactiveColor;
-//		m_stage1Color = inactiveColor;
-//		m_stage2Color = activeColor;
-//		m_stage3Color = inactiveColor;
-//	}
-//	else
-//	{
-//		m_frontColor = inactiveColor;
-//		m_stage1Color = inactiveColor;
-//		m_stage2Color = inactiveColor;
-//		m_stage3Color = activeColor;
-//	}
-//}
-//
-//void Ground::DrawLit()
-//{
-//	auto drawModel = [this](std::shared_ptr<KdModelData>& model, const Math::Color& color)
-//		{
-//			if (!model) return;
-//
-//			if (color.w < 1.0f)
-//			{
-//				// ★ 半透明オブジェクト用の描画設定
-//				// ZWriteDisable を有効にして「奥にいるプレイヤーを消さない」ようにする
-//				KdShaderManager::Instance().ChangeBlendState(KdBlendState::Alpha);
-//				KdShaderManager::Instance().ChangeDepthStencilState(KdDepthStencilState::ZWriteDisable);
-//
-//				KdShaderManager::Instance().m_StandardShader.DrawModel(*model, m_mWorld, color);
-//
-//				KdShaderManager::Instance().UndoDepthStencilState();
-//				KdShaderManager::Instance().UndoBlendState();
-//			}
-//			else
-//			{
-//				// 通常の不透明描画
-//				KdShaderManager::Instance().m_StandardShader.DrawModel(*model, m_mWorld, color);
-//			}
-//		};
-//
-//	// 描画実行
-//	drawModel(m_front, m_frontColor);
-//	drawModel(m_stage1, m_stage1Color);
-//	drawModel(m_stage2, m_stage2Color);
-//	drawModel(m_stage3, m_stage3Color);
-//}

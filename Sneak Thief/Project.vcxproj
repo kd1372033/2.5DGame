@@ -275,7 +275,9 @@
     <ClInclude Include="..\Library\tinygltf\tiny_gltf.h" />
     <ClInclude Include="Src\Application\main.h" />
     <ClInclude Include="Src\Application\Object\Back\Back.h" />
+    <ClInclude Include="Src\Application\Object\Desk\Desk.h" />
     <ClInclude Include="Src\Application\Object\Enemy\Enemy.h" />
+    <ClInclude Include="Src\Application\Object\GameObj\GameObj.h" />
     <ClInclude Include="Src\Application\Object\GameUI\GameUI.h" />
     <ClInclude Include="Src\Application\Object\Ground\Ground .h" />
     <ClInclude Include="Src\Application\Object\Item\Item.h" />
@@ -338,7 +340,9 @@
     <ClCompile Include="..\Library\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Src\Application\main.cpp" />
     <ClCompile Include="Src\Application\Object\Back\Back.cpp" />
+    <ClCompile Include="Src\Application\Object\Desk\Desk.cpp" />
     <ClCompile Include="Src\Application\Object\Enemy\Enemy.cpp" />
+    <ClCompile Include="Src\Application\Object\GameObj\GameObj.cpp" />
     <ClCompile Include="Src\Application\Object\GameUI\GameUI.cpp" />
     <ClCompile Include="Src\Application\Object\Ground\Ground.cpp" />
     <ClCompile Include="Src\Application\Object\Item\Item.cpp" />

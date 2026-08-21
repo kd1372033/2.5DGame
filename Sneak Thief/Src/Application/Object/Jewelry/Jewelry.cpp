@@ -12,7 +12,7 @@ void Jewelry::Init()
 	// テクスチャの設定
 	m_polygon->SetMaterial("Asset/Textures/Jewelry.png");
 
-	m_pos = { 9.5,-1,-1.75 };
+	m_pos = { 0.0f,0.5f,4.0f };
 	m_alpha = 1.0f;
 
 }

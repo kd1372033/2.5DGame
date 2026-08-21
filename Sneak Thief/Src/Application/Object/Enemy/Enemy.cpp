@@ -1,54 +1,48 @@
 ﻿#include "Enemy.h"
-
 #include "../../Scene/SceneManager.h"
 #include "../Player/Player.h"
 #include "../Item/Item.h"
 
 bool Enemy::s_showDebugWire = false;
 
-
 void Enemy::Init()
 {
 	m_pDebugWire = std::make_unique<KdDebugWireFrame>();
+	// 視界ポリゴンの生成
+	m_viewPolygon = std::make_shared<VisionPolygon>();
+
 	m_polygon = std::make_shared<KdSquarePolygon>();
 	m_polygon->SetMaterial("Asset/Textures/Enemy.png");
 	m_polygon->SetSplit(8, 6);
 	m_polygon->SetPivot(KdSquarePolygon::PivotType::Center_Bottom);
 
-	// 初期位置
 	m_pos = {};
-
-	// 移動初期化
-	m_dir = { 1.0f, 0.0f, 0.0f }; // 最初は右向き
+	m_dir = { 1.0f, 0.0f, 0.0f }; // 初期状態: 右向き
 	m_speed = 0.01f;
 	m_anime = 0.0f;
-	m_state = State::Walk;          // 最初は歩く
-	m_timer = 0.0f;                 // タイマーリセット
+	m_gravity = 0.0f;
+
+	m_state = State::Walk;
+	m_timer = 0.0f;
 
 	m_chaseFlg = false;
-
-	// サーチ範囲
 	m_searchArea = 0.45f;
-
 	m_itemSearchArea = 1.0f;
 }
 
 void Enemy::Update()
 {
+	// 先頭のエネミー（リーダー）のみがデバッグキー入力を受け取る
 	bool isLeader = false;
 	for (auto& obj : SceneManager::Instance().GetObjList())
 	{
 		if (auto firstEnemy = std::dynamic_pointer_cast<Enemy>(obj))
 		{
-			if (firstEnemy.get() == this)
-			{
-				isLeader = true;
-			}
-			break; // 1体見つけたらループを抜ける
+			if (firstEnemy.get() == this) isLeader = true;
+			break;
 		}
 	}
 
-	// ★修正：リーダーだけが代表して、世界に1つだけの共通フラグを「1回だけ」反転させる
 	if (isLeader && (GetAsyncKeyState('A') & 0x0001))
 	{
 		s_showDebugWire = !s_showDebugWire;
@@ -56,127 +50,37 @@ void Enemy::Update()
 
 	bool isMoving = false;
 
-	// タイマーを進めるのは「追尾していない（巡回中）のとき」だけ
+	// タイマー更新（パトロール中のみ）
 	if (!m_chaseFlg && !m_itemFlg)
 	{
 		m_timer += 1.0f;
 	}
 
-	// =========================================================
-	// 状態に応じた移動処理（PostUpdateで確定したフラグを元に動く）
-	// =========================================================
-
-	// ① アイテム誘惑モード
+	// 1. 各状態での移動計算
 	if (m_itemFlg)
 	{
-		if (m_wpItem.expired() == false)
-		{
-			Math::Vector3 itemPos = m_wpItem.lock()->GetPos();
-			Math::Vector3 vItem = itemPos - m_pos;
-			vItem.y = 0.0f;
-
-			// アイテムに到着している場合（2秒間停止）
-			if (vItem.Length() < 0.2f || m_itemWaitTimer > 0.0f)
-			{
-				isMoving = false;
-				if (m_itemWaitTimer == 0.0f) m_itemWaitTimer = 120.0f; // 2秒セット
-
-				m_itemWaitTimer -= 1.0f;
-
-				// 3秒経ったら執着を捨てる
-				if (m_itemWaitTimer <= 0.0f)
-				{
-					m_wpItem.lock()->OnHit();
-
-					m_itemFlg = false;
-					m_wpItem.reset();
-					m_state = State::Wait; // 少し休憩させてからパトロールへ
-					m_timer = 0.0f;
-				}
-			}
-			else
-			{
-				// まだ離れているならアイテムに向かって進む
-				isMoving = true;
-				vItem.Normalize();
-				m_dir = vItem;
-				m_pos.x += m_speed * m_dir.x;
-				m_pos.z += m_speed * m_dir.z;
-			}
-		}
-		else
-		{
-			// アイテムが消滅するなどして無効になったら通常に戻る
-			m_itemFlg = false;
-		}
+		UpdateItemAttract(isMoving);
 	}
-	// ② プレイヤー追尾モード（Dash）
 	else if (m_chaseFlg)
 	{
-		isMoving = true;
-		float dashSpeed = m_speed * 1.75f;
-		m_pos.x += dashSpeed * m_dir.x;
-		m_pos.z += dashSpeed * m_dir.z;
-		m_anime += 0.05f;
-	}
-	// ③ 通常のパトロール（巡回）
-	else
-	{
-		switch (m_state)
-		{
-		case State::Walk:
-			isMoving = true;
-			m_pos.x += m_speed * m_dir.x;
-
-			if (m_timer >= 120.0f)
-			{
-				m_state = State::Wait;
-				m_timer = 0.0f;
-			}
-			break;
-
-		case State::Wait:
-			isMoving = false;
-
-			if (m_timer >= 60.0f)
-			{
-				m_dir.x *= -1.0f; // 反転
-				m_state = State::Walk;
-				m_timer = 0.0f;
-			}
-			break;
-		}
-	}
-
-	// ステージの端判定
-	if (m_pos.z <= -2.25f)  m_pos.z = -2.25f;
-	if (m_pos.z >= -0.3f)   m_pos.z = -0.3f;
-	if (m_pos.x <= -11.0f)  m_pos.x = -11.0f;
-
-	// アニメーションタイマーの更新
-	if (isMoving)
-	{
-		m_anime += 0.1f;
-		if (m_anime >= 8.0f) m_anime = 0.0f;
+		UpdatePlayerChase(isMoving);
 	}
 	else
 	{
-		m_anime += 0.05f;
-		if (m_anime >= 4.0f) m_anime = 0.0f;
+		UpdatePatrol(isMoving);
 	}
 
-	// 向きの同期
-	if (m_dir.x > 0.0f)      m_dirID = 2; // 右
-	else if (m_dir.x < 0.0f) m_dirID = 1; // 左
+	// 2. UVアニメーション更新
+	UpdateAnimation(isMoving);
 
-	if (isMoving) m_polygon->SetUVRect(Run[m_dirID][(int)m_anime % 8]);
-	else          m_polygon->SetUVRect(Wait[m_dirID][(int)m_anime % 4]);
+	// 視界ポリゴンの形状を最新の向き・角度に合わせて更新
+	UpdateViewPolygon();
 
-	// 重力処理
+	// 重力計算
 	m_pos.y -= m_gravity;
 	m_gravity += 0.005f;
 
-	// 行列更新
+	// 行列の更新
 	Math::Matrix scalemat = Math::Matrix::CreateScale(0.5f);
 	Math::Matrix transmat = Math::Matrix::CreateTranslation(m_pos);
 	m_mWorld = scalemat * transmat;
@@ -184,247 +88,500 @@ void Enemy::Update()
 
 void Enemy::PostUpdate()
 {
-	// ==============
-	//	レイ判定（既存の地面押し戻し）
-	// ==============
+	// 1. 地面・壁の当たり判定
+	CheckCollision();
+
+	// 2. プレイヤー索敵
+	CheckPlayerSearch();
+
+	// 3. アイテム索敵
+	CheckItemSearch();
+}
+
+// =============================================================
+// Update 分割関数
+// =============================================================
+
+void Enemy::UpdatePatrol(bool& isMoving)
+{
+	switch (m_state)
+	{
+	case State::Walk:
+		isMoving = true;
+		m_pos.x += m_speed * m_dir.x; // ★X軸方向のみ移動（左右巡回）
+
+		if (m_timer >= 120.0f) // 約2秒移動
+		{
+			m_state = State::Wait;
+			m_timer = 0.0f;
+		}
+		break;
+
+	case State::Wait:
+		isMoving = false;
+
+		if (m_timer >= 60.0f) // 約1秒停止
+		{
+			m_dir.x *= -1.0f; // ★左右反転
+			m_state = State::Walk;
+			m_timer = 0.0f;
+		}
+		break;
+	}
+}
+
+void Enemy::UpdateItemAttract(bool& isMoving)
+{
+	if (m_wpItem.expired())
+	{
+		m_itemFlg = false;
+		return;
+	}
+
+	Math::Vector3 itemPos = m_wpItem.lock()->GetPos();
+	Math::Vector3 vItem = itemPos - m_pos;
+	vItem.y = 0.0f;
+
+	if (vItem.Length() < 0.2f || m_itemWaitTimer > 0.0f)
+	{
+		isMoving = false;
+		if (m_itemWaitTimer == 0.0f) m_itemWaitTimer = 120.0f; // 2秒間待機
+
+		m_itemWaitTimer -= 1.0f;
+
+		if (m_itemWaitTimer <= 0.0f)
+		{
+			m_wpItem.lock()->OnHit();
+
+			m_itemFlg = false;
+			m_wpItem.reset();
+			m_state = State::Wait;
+			m_timer = 0.0f;
+		}
+	}
+	else
+	{
+		isMoving = true;
+		vItem.Normalize();
+		m_dir = vItem;
+		m_pos += m_dir * m_speed;
+	}
+}
+
+void Enemy::UpdatePlayerChase(bool& isMoving)
+{
+	isMoving = true;
+	float dashSpeed = m_speed * 1.75f;
+	m_pos += m_dir * dashSpeed;
+}
+
+void Enemy::UpdateAnimation(bool isMoving)
+{
+	// 向きの同期（左右固定）
+	if (m_dir.x > 0.0f)      m_dirID = 2; // 右
+	else if (m_dir.x < 0.0f) m_dirID = 1; // 左
+
+	// アニメーションフレーム更新
+	if (isMoving)
+	{
+		m_anime += 0.1f;
+		if (m_anime >= 8.0f) m_anime = 0.0f;
+		m_polygon->SetUVRect(Run[m_dirID][static_cast<int>(m_anime) % 8]);
+	}
+	else
+	{
+		m_anime += 0.05f;
+		if (m_anime >= 4.0f) m_anime = 0.0f;
+		m_polygon->SetUVRect(Wait[m_dirID][static_cast<int>(m_anime) % 4]);
+	}
+}
+
+// =============================================================
+// PostUpdate 分割関数（当たり判定）
+// =============================================================
+
+void Enemy::CheckCollision()
+{
+	// 地面レイ判定
 	KdCollider::RayInfo ray;
-	ray.m_pos = m_pos;
 	float enableStepHigh = 0.2f;
+
+	ray.m_pos = m_pos;
 	ray.m_pos.y += enableStepHigh;
-	ray.m_dir = { 0, -1, 0 };
+	ray.m_dir = { 0.0f, -1.0f, 0.0f };
 	ray.m_range = m_gravity + enableStepHigh;
 	ray.m_type = KdCollider::TypeGround;
-	//m_pDebugWire->AddDebugLine(ray.m_pos, ray.m_dir, ray.m_range);
 
 	std::list<KdCollider::CollisionResult> retRayList;
 	for (auto& obj : SceneManager::Instance().GetObjList())
 	{
+		if (obj.get() == this) continue;
 		obj->Intersects(ray, &retRayList);
 	}
 
-	float maxOverLap = 0;
+	float maxOverlap = 0.0f;
 	Math::Vector3 hitPos;
-	bool hit = false;
+	bool hitRay = false;
+
 	for (auto& ret : retRayList)
 	{
-		if (maxOverLap < ret.m_overlapDistance)
+		if (maxOverlap < ret.m_overlapDistance)
 		{
-			maxOverLap = ret.m_overlapDistance;
+			maxOverlap = ret.m_overlapDistance;
 			hitPos = ret.m_hitPos;
-			hit = true;
+			hitRay = true;
 		}
 	}
-	if (hit == true)
+
+	if (hitRay)
 	{
-		m_pos = hitPos + Math::Vector3(0.0f, -0.1f, 0.0f);
-		m_gravity = 0;
+		m_pos.y = hitPos.y;
+		m_gravity = 0.0f;
 	}
 
-	// ==============
-	//	球(スフィア)判定（既存の壁押し戻し）
-	// ==============
+	// 壁スフィア判定
 	KdCollider::SphereInfo sphere;
 	sphere.m_sphere.Center = m_pos;
 	sphere.m_sphere.Center.y += 0.3f;
 	sphere.m_sphere.Radius = 0.3f;
 	sphere.m_type = KdCollider::Type::TypeGround;
-	//m_pDebugWire->AddDebugSphere(sphere.m_sphere.Center, sphere.m_sphere.Radius);
 
 	std::list<KdCollider::CollisionResult> retSphereList;
 	for (auto& obj : SceneManager::Instance().GetObjList())
 	{
+		if (obj.get() == this) continue;
 		obj->Intersects(sphere, &retSphereList);
 	}
 
-	maxOverLap = 0;
-	hit = false;
-	Math::Vector3 hitDir;
+	maxOverlap = 0.0f;
+	bool hitSphere = false;
+	Math::Vector3 hitDir = Math::Vector3::Zero;
+
 	for (auto& ret : retSphereList)
 	{
-		if (maxOverLap < ret.m_overlapDistance)
+		Math::Vector3 dir = ret.m_hitDir;
+		dir.y = 0.0f;
+
+		if (dir.LengthSquared() > 0.0001f)
 		{
-			maxOverLap = ret.m_overlapDistance;
-			hitDir = ret.m_hitDir;
-			hit = true;
+			if (maxOverlap < ret.m_overlapDistance)
+			{
+				maxOverlap = ret.m_overlapDistance;
+				dir.Normalize();
+				hitDir = dir;
+				hitSphere = true;
+			}
 		}
 	}
-	if (hit == true)
-	{
-		hitDir.z = 0;
-		hitDir.Normalize();
-		m_pos += hitDir * maxOverLap;
-	}
 
-	float offsetDistance = 0.3f;
-	Math::Vector3 playerSearchCenter = m_pos;
-	if (!m_chaseFlg)
+	if (hitSphere)
 	{
-		playerSearchCenter.x += m_dir.x * offsetDistance;
+		m_pos.x += hitDir.x * maxOverlap;
+		m_pos.z += hitDir.z * maxOverlap;
 	}
+}
 
-	// 自機の索敵範囲
-	KdCollider::SphereInfo playerSearchSphere;
-	playerSearchSphere.m_sphere.Center = playerSearchCenter;
-	playerSearchSphere.m_sphere.Radius = m_searchArea;
-	playerSearchSphere.m_type = KdCollider::TypeSight; // ★ タイプを設定
+bool Enemy::IsPlayerInFieldOfView(const std::shared_ptr<Player>& player)
+{
+	if (!player) return false;
 
-	// 緑色のデバッグ球でプレイヤー索敵範囲を描画
-	//m_pDebugWire->AddDebugSphere(playerSearchSphere.m_sphere.Center, playerSearchSphere.m_sphere.Radius, kGreenColor);
-	if (s_showDebugWire)
-	{
-		m_pDebugWire->AddDebugSphere(playerSearchSphere.m_sphere.Center, playerSearchSphere.m_sphere.Radius, kGreenColor);
-	}
-	
-	std::list<KdCollider::CollisionResult> retPlayerSearchList;
+	Math::Vector3 eyePos = m_pos;
+	eyePos.y += 0.5f;
+
+	Math::Vector3 targetPos = player->GetPos();
+	targetPos.y += 0.5f;
+
+	Math::Vector3 vToPlayer = targetPos - eyePos;
+	vToPlayer.y = 0.0f; // 水平判定
+
+	float dist = vToPlayer.Length();
+
+	// 1. 視界距離チェック
+	if (dist > m_viewDistance || dist < 0.001f) return false;
+
+	vToPlayer.Normalize();
+
+	// 2. 扇形角度チェック
+	Math::Vector3 forward = m_dir;
+	forward.y = 0.0f;
+	forward.Normalize();
+
+	float dot = forward.Dot(vToPlayer);
+	dot = std::clamp(dot, -1.0f, 1.0f);
+
+	float angleDeg = DirectX::XMConvertToDegrees(std::acos(dot));
+	if (angleDeg > (m_viewAngle * 0.5f)) return false;
+
+	// 3. 壁遮蔽判定（法線ベクトル m_hitNDir で壁だけを判定）
+	Math::Vector3 rayDir = targetPos - eyePos;
+	float rayRange = rayDir.Length();
+	rayDir.Normalize();
+
+	KdCollider::RayInfo ray;
+	ray.m_pos = eyePos;
+	ray.m_dir = rayDir;
+	ray.m_range = rayRange;
+	// 地面・障害物フラグを対象にする
+	ray.m_type = KdCollider::TypeGround | KdCollider::TypeBump;
+
 	for (auto& obj : SceneManager::Instance().GetObjList())
 	{
-		// ターゲットがプレイヤーの場合のみ、コライダー判定を行う
-		if (std::dynamic_pointer_cast<Player>(obj))
+		if (obj.get() == this || obj == player) continue;
+
+		std::list<KdCollider::CollisionResult> retRayList;
+		if (obj->Intersects(ray, &retRayList))
 		{
-			obj->Intersects(playerSearchSphere, &retPlayerSearchList);
+			for (auto& ret : retRayList)
+			{
+				// ヒットした面の法線 m_hitNDir のY成分をチェック
+				// 垂直な面（壁）に当たった場合のみ「見えない」と判定
+				if (std::abs(ret.m_hitNDir.y) < 0.5f)
+				{
+					return false; // 壁に遮られている
+				}
+			}
 		}
 	}
 
-	// ==========================================
-	// 2. 全オブジェクトからプレイヤーを探す
-	// ==========================================
+	return true;
+}
+
+void Enemy::CheckPlayerSearch()
+{
+	std::shared_ptr<Player> targetPlayer = nullptr;
+
 	for (auto& obj : SceneManager::Instance().GetObjList())
 	{
 		if (auto player = std::dynamic_pointer_cast<Player>(obj))
 		{
-			std::list<KdCollider::CollisionResult> retPlayerList;
-
-			// プレイヤーが索敵スフィア内に入っているか？
-			if (player->Intersects(playerSearchSphere, &retPlayerList))
-			{
-				// ─── 索敵成功！ここからベクターでの判定 ───
-
-				// 3. 敵からプレイヤーへのベクトルを計算
-				Math::Vector3 vToPlayer = player->GetPos() - m_pos;
-
-				// 4. ベクトルの長さ（2点間の距離）を算出
-				float distance = vToPlayer.Length();
-
-				// 5. 完全に重なった（至近距離になった）か判定
-				// 0.2f などの閾値は、キャラのサイズに合わせて調整してください
-				if (distance < 0.2f)
-				{
-					// ゲームオーバー判定
-					SceneManager::Instance().SetClearFlag(false);
-					SceneManager::Instance().SetNextScene(SceneManager::SceneType::Result);
-					return;
-				}
-
-				// (参考) ここに「プレイヤーを追尾する処理」などを書くこともできます
-			}
+			targetPlayer = player;
+			break;
 		}
 	}
 
-	// ★ 地面判定と同じ仕組み：該当する結果（めり込み）がリストに入っているかチェック
-	float maxPlayerOverlap = 0.0f;
-	bool hitPlayer = false;
+	if (!targetPlayer) return;
 
-	for (auto& ret : retPlayerSearchList)
+	float dist = (targetPlayer->GetPos() - m_pos).Length();
+
+	// ゲームオーバー接触判定
+	if (dist < 0.15f)
 	{
-		// 該当していたらフラグを立てる（一番めり込みが大きい＝近いものを採用）
-		if (maxPlayerOverlap < ret.m_overlapDistance)
-		{
-			maxPlayerOverlap = ret.m_overlapDistance;
-			hitPlayer = true;
-		}
+		SceneManager::Instance().SetClearFlag(false);
+		SceneManager::Instance().SetNextScene(SceneManager::SceneType::Result);
+		return;
 	}
 
-	// ★ 該当していたら（ヒットしていたら）処理を行う
-	if (hitPlayer && !m_itemFlg)
+	// -------------------------------------------------------------
+	// 追跡＆見失い処理
+	// -------------------------------------------------------------
+	if (!m_chaseFlg)
 	{
-		m_chaseFlg = true; // プレイヤー追尾モードON
-
-		if (m_wpTarget.expired() == false)
+		// 【未追跡】扇形視界に入り、かつ壁がなければ追跡開始
+		if (IsPlayerInFieldOfView(targetPlayer))
 		{
-			Math::Vector3 targetPos = m_wpTarget.lock()->GetPos();
-			Math::Vector3 chaseVec = targetPos - m_pos;
-			chaseVec.y = 0.0f;
-			chaseVec.Normalize();
-			if (chaseVec.Length() > 0.0f) m_dir = chaseVec; // プレイヤーの方向を向く
+			m_chaseFlg = true;
 		}
 	}
 	else
 	{
-		// 該当しなくなったら（範囲外に出たら）追尾終了
-		if (m_chaseFlg)
+		// 【追跡中】距離離脱 または 壁遮蔽で見失う
+		bool isLost = false;
+
+		if (dist > m_viewDistance)
 		{
+			isLost = true; // 距離離脱
+		}
+		else
+		{
+			// 壁遮蔽判定
+			Math::Vector3 eyePos = m_pos;
+			eyePos.y += 0.5f;
+
+			Math::Vector3 targetPos = targetPlayer->GetPos();
+			targetPos.y += 0.5f;
+
+			Math::Vector3 rayDir = targetPos - eyePos;
+			float rayRange = rayDir.Length();
+			rayDir.Normalize();
+
+			KdCollider::RayInfo ray;
+			ray.m_pos = eyePos;
+			ray.m_dir = rayDir;
+			ray.m_range = rayRange;
+			ray.m_type = KdCollider::TypeGround | KdCollider::TypeBump;
+
+			for (auto& obj : SceneManager::Instance().GetObjList())
+			{
+				if (obj.get() == this || obj == targetPlayer) continue;
+
+				std::list<KdCollider::CollisionResult> retRayList;
+				if (obj->Intersects(ray, &retRayList))
+				{
+					for (auto& ret : retRayList)
+					{
+						// ヒットした面が「壁（垂直面）」であれば遮蔽
+						if (std::abs(ret.m_hitNDir.y) < 0.5f)
+						{
+							isLost = true;
+							break;
+						}
+					}
+				}
+				if (isLost) break;
+			}
+		}
+
+		if (isLost)
+		{
+			// 追跡を解除して停止状態へ
 			m_chaseFlg = false;
 			m_state = State::Wait;
 			m_timer = 0.0f;
 		}
-	}
-
-	// アイテムの索敵範囲
-	KdCollider::SphereInfo itemSearchSphere;
-	itemSearchSphere.m_sphere.Center = m_pos;
-	itemSearchSphere.m_sphere.Radius = m_itemSearchArea;
-	itemSearchSphere.m_type = KdCollider::TypeSight;
-
-	// 赤色のデバッグ球で、エネミー自身のアイテム知覚範囲を描画
-	//m_pDebugWire->AddDebugSphere(itemSearchSphere.m_sphere.Center, itemSearchSphere.m_sphere.Radius, kRedColor);
-	if (s_showDebugWire)
-	{
-		m_pDebugWire->AddDebugSphere(itemSearchSphere.m_sphere.Center, itemSearchSphere.m_sphere.Radius, kRedColor);
-	}
-
-	// 見つけたアイテムを記憶しておくための変数
-	std::shared_ptr<Item> pFoundItem = nullptr;
-	float maxItemOverlap = 0.0f;
-	bool hitItem = false;
-
-	for (auto& obj : SceneManager::Instance().GetObjList())
-	{
-		// ターゲットがアイテムの場合のみチェック
-		auto itemObj = std::dynamic_pointer_cast<Item>(obj);
-		if (itemObj)
+		else
 		{
-			std::list<KdCollider::CollisionResult> retItemSearchList;
-
-			// 当たり判定を実行
-			if (itemObj->Intersects(itemSearchSphere, &retItemSearchList))
+			// 追尾向きの更新
+			Math::Vector3 chaseVec = targetPlayer->GetPos() - m_pos;
+			chaseVec.y = 0.0f;
+			chaseVec.Normalize();
+			if (chaseVec.LengthSquared() > 0.0f)
 			{
-				// リストの中身をチェックして、一番めり込みが深いものを探す
-				for (auto& ret : retItemSearchList)
-				{
-					if (maxItemOverlap < ret.m_overlapDistance)
-					{
-						maxItemOverlap = ret.m_overlapDistance;
-						hitItem = true;
-
-						// 今まさに判定が当たったこのアイテム(itemObj)をキープする！
-						pFoundItem = itemObj;
-					}
-				}
+				m_dir = chaseVec;
 			}
 		}
 	}
 
-	// ★ アイテムが範囲内に該当していたら（見つけたら）処理を行う！
-	if (hitItem && pFoundItem)
+	// 扇形デバッグ描画
+	if (s_showDebugWire)
+	{
+		float halfAngle = DirectX::XMConvertToRadians(m_viewAngle * 0.5f);
+
+		Math::Vector3 fwd = m_dir;
+		fwd.y = 0.0f;
+		fwd.Normalize();
+
+		Math::Matrix rotLeft = Math::Matrix::CreateRotationY(-halfAngle);
+		Math::Matrix rotRight = Math::Matrix::CreateRotationY(halfAngle);
+
+		Math::Vector3 dirLeft = Math::Vector3::TransformNormal(fwd, rotLeft);
+		Math::Vector3 dirRight = Math::Vector3::TransformNormal(fwd, rotRight);
+
+		Math::Vector3 eyePos = m_pos;
+		eyePos.y += 0.5f;
+
+		m_pDebugWire->AddDebugLine(eyePos, dirLeft, m_viewDistance, kGreenColor);
+		m_pDebugWire->AddDebugLine(eyePos, dirRight, m_viewDistance, kGreenColor);
+	}
+}
+
+// -------------------------------------------------------------
+// 扇形視界ポリゴンの生成・更新処理
+// -------------------------------------------------------------
+void Enemy::UpdateViewPolygon()
+{
+	if (!m_viewPolygon) return;
+
+	std::vector<KdPolygon::Vertex> vertices;
+
+	const int slice = 16;
+	float halfAngle = DirectX::XMConvertToRadians(m_viewAngle * 0.5f);
+
+	unsigned int centerColor = 0xFFFFFFFF;
+	unsigned int outerColor = 0x00FFFFFF;
+
+	float baseAngle = std::atan2(m_dir.x, m_dir.z);
+
+	for (int i = 0; i < slice; ++i)
+	{
+		float t1 = static_cast<float>(i) / slice;
+		float t2 = static_cast<float>(i + 1) / slice;
+
+		float angle1 = baseAngle - halfAngle + (halfAngle * 2.0f) * t1;
+		float angle2 = baseAngle - halfAngle + (halfAngle * 2.0f) * t2;
+
+		// 頂点0: 中心点
+		KdPolygon::Vertex v0;
+		v0.pos = { 0.0f, 0.08f, 0.0f };
+		v0.color = centerColor;
+		v0.UV = { 0.5f, 0.5f };
+		v0.normal = { 0.0f, 1.0f, 0.0f };
+
+		// ★ m_viewRenderDistance を使用して見た目だけ伸ばす
+		KdPolygon::Vertex v1;
+		v1.pos = { std::sin(angle1) * m_viewRenderDistance, 0.08f, std::cos(angle1) * m_viewRenderDistance };
+		v1.color = outerColor;
+		v1.UV = { 0.0f, 0.0f };
+		v1.normal = { 0.0f, 1.0f, 0.0f };
+
+		KdPolygon::Vertex v2;
+		v2.pos = { std::sin(angle2) * m_viewRenderDistance, 0.08f, std::cos(angle2) * m_viewRenderDistance };
+		v2.color = outerColor;
+		v2.UV = { 1.0f, 0.0f };
+		v2.normal = { 0.0f, 1.0f, 0.0f };
+
+		vertices.push_back(v0);
+		vertices.push_back(v1);
+		vertices.push_back(v2);
+	}
+
+	m_viewPolygon->SetVertices(vertices);
+}
+
+void Enemy::CheckItemSearch()
+{
+	// 赤スフィア（m_itemSearchArea）は★アイテム検出専用★
+	KdCollider::SphereInfo searchSphere;
+	searchSphere.m_sphere.Center = m_pos;
+	searchSphere.m_sphere.Radius = m_itemSearchArea;
+	searchSphere.m_type = KdCollider::TypeSight;
+
+	// 赤スフィアをデバッグ描画（アイテム判定用として可視化）
+	if (s_showDebugWire)
+	{
+		m_pDebugWire->AddDebugSphere(searchSphere.m_sphere.Center, searchSphere.m_sphere.Radius, kRedColor);
+	}
+
+	std::shared_ptr<Item> pFoundItem = nullptr;
+
+	for (auto& obj : SceneManager::Instance().GetObjList())
+	{
+		// アイテムオブジェクトのみを判定対象とする（プレイヤーは完全スルー）
+		if (auto itemObj = std::dynamic_pointer_cast<Item>(obj))
+		{
+			std::list<KdCollider::CollisionResult> retList;
+			if (itemObj->Intersects(searchSphere, &retList))
+			{
+				pFoundItem = itemObj;
+				break;
+			}
+		}
+	}
+
+	if (pFoundItem)
 	{
 		if (!m_itemFlg)
 		{
 			m_itemFlg = true;
-			m_chaseFlg = false;       // プレイヤーの追尾はキャンセル
-			m_wpItem = pFoundItem;    // 見つけたアイテムをターゲットとして記憶
-			m_itemWaitTimer = 0.0f;   // タイマーリセット
+			m_chaseFlg = false; // アイテム発見時はプレイヤー追尾よりアイテム優先
+			m_wpItem = pFoundItem;
+			m_itemWaitTimer = 0.0f;
 		}
 	}
 	else
 	{
-		// ★ アイテム誘惑モード中なのに、範囲内に該当しなくなったら（見失ったら）処理を行う
 		if (m_itemFlg && m_itemWaitTimer <= 0.0f)
 		{
 			m_itemFlg = false;
-			m_wpItem.reset(); // アイテムを諦めてパトロールに戻る
+			m_wpItem.reset();
 		}
 	}
 }
+
+
+
+// =============================================================
+// 描画処理
+// =============================================================
 
 void Enemy::GenerateDepthMapFromLight()
 {
@@ -434,4 +591,47 @@ void Enemy::GenerateDepthMapFromLight()
 void Enemy::DrawLit()
 {
 	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_polygon, m_mWorld);
+}
+
+// -------------------------------------------------------------
+// 半透明パスでの視界描画
+// -------------------------------------------------------------
+void Enemy::DrawUnLit()
+{
+	if (!m_viewPolygon || m_viewPolygon->GetVertices().empty()) return;
+
+	// アルファブレンド有効・Z書き込み無効化
+	KdShaderManager::Instance().ChangeBlendState(KdBlendState::Alpha);
+	KdShaderManager::Instance().ChangeDepthStencilState(KdDepthStencilState::ZWriteDisable);
+
+	// 描画実行
+	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_viewPolygon, m_mWorld);
+
+	KdShaderManager::Instance().UndoDepthStencilState();
+	KdShaderManager::Instance().UndoBlendState();
+}
+
+// -------------------------------------------------------------
+// 高輝度（発光・ブルーム）描画パス
+// -------------------------------------------------------------
+void Enemy::DrawBright()
+{
+	if (!m_viewPolygon || m_viewPolygon->GetVertices().empty()) return;
+
+	// 1. 加算合成（Add）に切り替えて光を重ね合わせる
+	KdShaderManager::Instance().ChangeBlendState(KdBlendState::Add);
+
+	// 2. 奥行きの書き込みをオフ（床や壁と透け合わせる）
+	KdShaderManager::Instance().ChangeDepthStencilState(KdDepthStencilState::ZWriteDisable);
+
+	// 3. 超高輝度カラーを設定（緑成分を 3.0f や 5.0f など 1.0f 超えにして発光させる）
+	// ※ R:0.0, G:4.0, B:0.2, A:0.8
+	m_viewPolygon->SetColor(Math::Color(0.5f, 0.0f, 0.0f, 0.8f));
+
+	// 4. ポリゴンの描画
+	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_viewPolygon, m_mWorld);
+
+	// 5. 設定の復元
+	KdShaderManager::Instance().UndoDepthStencilState();
+	KdShaderManager::Instance().UndoBlendState();
 }

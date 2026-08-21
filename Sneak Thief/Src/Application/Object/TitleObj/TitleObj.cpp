@@ -4,7 +4,7 @@
 void TitleObj::Init()
 {
 	m_titleback.Load("Asset/Textures/titleBack.png");
-	m_titlelogo.Load("Asset/Textures/Title.png");
+	m_titlelogo.Load("Asset/Textures/Title2.png");
 	m_enter.Load("Asset/Textures/Enter.png");
 	m_player.Load("Asset/Textures/Player.png");
 	operate.Load("Asset/Textures/Operate.png");
