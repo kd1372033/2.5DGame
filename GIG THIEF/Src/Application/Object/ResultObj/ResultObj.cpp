@@ -3,11 +3,11 @@
 
 void ResultObj::Init()
 {
-	m_result.Load("Asset/Textures/Result.png");
+	m_result.Load("Asset/Textures/Result1.png");
 	m_clear = SceneManager::Instance().GetClearFlag();
 
-	m_clearEnter.Load("Asset/Textures/ClearEnter.png");
-	m_caughtEnter.Load("Asset/Textures/GameoverEnter.png");
+	m_clearEnter.Load("Asset/Textures/ClearEnter1.png");
+	m_caughtEnter.Load("Asset/Textures/GameoverEnter1.png");
 
 	m_resultpos = { 0.0f,0.0f };
 	m_enterpos = { 0.0f, -275.0f };
