@@ -5,13 +5,13 @@
 // 頂点シェーダ
 //================================
 VSOutput main(
-	float4 pos : POSITION,			// 頂点座標
-	float2 uv : TEXCOORD0,			// テクスチャUV座標
-	float4 color : COLOR,			// 頂点カラー
-	float3 normal : NORMAL,			// 法線
-	float3 tangent : TANGENT,		// 接線
-    uint4 skinIndex : SKININDEX,	// スキンメッシュのボーンインデックス(何番目のボーンに影響しているか？のデータ(最大４つぶん))
-	float4 skinWeight : SKINWEIGHT	// ボーンの影響度(そのボーンにどれだけ影響しているか？のデータ(最大４つぶん))
+	float4 pos : POSITION, // 頂点座標
+	float2 uv : TEXCOORD0, // テクスチャUV座標
+	float4 color : COLOR, // 頂点カラー
+	float3 normal : NORMAL, // 法線
+	float3 tangent : TANGENT, // 接線
+    uint4 skinIndex : SKININDEX, // スキンメッシュのボーンインデックス(何番目のボーンに影響しているか？のデータ(最大４つぶん))
+	float4 skinWeight : SKINWEIGHT // ボーンの影響度(そのボーンにどれだけ影響しているか？のデータ(最大４つぶん))
 )
 {
 	// スキニング---------------->
@@ -34,8 +34,8 @@ VSOutput main(
 	VSOutput Out;
 
     // 座標変換
-	Out.Pos = mul(pos, g_mWorld);	 // ローカル座標系	-> ワールド座標系へ変換
-	Out.wPos = Out.Pos.xyz;			 // ワールド座標を別途保存
+	Out.Pos = mul(pos, g_mWorld); // ローカル座標系	-> ワールド座標系へ変換
+	Out.wPos = Out.Pos.xyz; // ワールド座標を別途保存
 	Out.Pos = mul(Out.Pos, g_mView); // ワールド座標系	-> ビュー座標系へ変換
 	Out.Pos = mul(Out.Pos, g_mProj); // ビュー座標系	-> 射影座標系へ変換
 

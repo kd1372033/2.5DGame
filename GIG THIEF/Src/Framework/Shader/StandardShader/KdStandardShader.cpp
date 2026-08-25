@@ -184,12 +184,12 @@ void KdStandardShader::DrawModel(const KdModelData& rModel, const Math::Matrix& 
 	for (auto& nodeIdx : rModel.GetDrawMeshNodeIndices())
 	{
 		// 描画
-		DrawMesh(dataNodes[nodeIdx].m_spMesh.get(), dataNodes[nodeIdx].m_worldTransform * mWorld, 
+		DrawMesh(dataNodes[nodeIdx].m_spMesh.get(), dataNodes[nodeIdx].m_worldTransform * mWorld,
 			rModel.GetMaterials(), colRate, emissive);
 	}
 
 	// 定数に変更があった場合は自動的に初期状態に戻す
-	if(m_dirtyCBObj)
+	if (m_dirtyCBObj)
 	{
 		ResetCBObject();
 	}
@@ -242,7 +242,7 @@ void KdStandardShader::DrawModel(KdModelWork& rModel, const Math::Matrix& mWorld
 			m_cb3_Bone.Write();
 		}
 	}
-	
+
 
 	// 全描画用メッシュノードを描画
 	for (auto& nodeIdx : data->GetDrawMeshNodeIndices())
@@ -485,8 +485,8 @@ bool KdStandardShader::Init()
 			Release();
 			return false;
 		}
-	} 
-	
+	}
+
 	{
 #include "KdStandardShader_PS_UnLit.shaderInc"
 
@@ -532,7 +532,7 @@ void KdStandardShader::Release()
 	KdSafeRelease(m_VS_UnLit);
 
 	KdSafeRelease(m_inputLayout);
-	
+
 	KdSafeRelease(m_PS_Lit);
 	KdSafeRelease(m_PS_GenDepthFromLight);
 	KdSafeRelease(m_PS_UnLit);

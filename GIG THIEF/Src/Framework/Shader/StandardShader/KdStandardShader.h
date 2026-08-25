@@ -163,7 +163,7 @@ public:
 		const Math::Vector4& col, const Math::Vector3& emissive);
 
 	// モデルデータ描画：アニメーションに非対応
-	void DrawModel(const KdModelData& rModel, const Math::Matrix& mWorld = Math::Matrix::Identity, 
+	void DrawModel(const KdModelData& rModel, const Math::Matrix& mWorld = Math::Matrix::Identity,
 		const Math::Color& colRate = kWhiteColor, const Math::Vector3& emissive = Math::Vector3::Zero);
 
 	// モデルワーク描画：アニメーションに対応
@@ -233,7 +233,7 @@ private:
 
 	// 頂点入力レイアウト
 	ID3D11InputLayout* m_inputLayout = nullptr;
-	
+
 	// ピクセルシェーダー
 	ID3D11PixelShader* m_PS_Lit = nullptr;					// 陰影あり
 	ID3D11PixelShader* m_PS_UnLit = nullptr;				// 陰影なし

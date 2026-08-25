@@ -31,7 +31,7 @@ float4 main(VSOutputNoLighting In) : SV_Target0
 	// 自己発光色の適応
 	if (g_OnlyEmissie)
 	{
-		outColor = g_emissiveTex.Sample(g_ss, In.UV).rgb * g_Emissive * In.Color.rgb;		
+		outColor = g_emissiveTex.Sample(g_ss, In.UV).rgb * g_Emissive * In.Color.rgb;
 	}
 	else
 	{
