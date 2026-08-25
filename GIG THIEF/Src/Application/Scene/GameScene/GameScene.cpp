@@ -13,7 +13,6 @@ void GameScene::Event()
 {
 	if (GetAsyncKeyState('A') & 0x0001)
 	{
-		// 現在の状態（Get）を反転（!）させた値をセット（Set）する
 		bool nextState = !Enemy::GetShowDebugWire();
 		Enemy::SetShowDebugWire(nextState);
 	}
@@ -33,23 +32,23 @@ void GameScene::Event()
 
 	if (GetAsyncKeyState(VK_TAB) & 0x8000)
 	{
-		m_UI->SetVisibleJewelry(true); // UIを表示する
+		m_UI->SetVisibleJewelry(true); // UI
 
-		// ★追加：プレイヤーに宝石を強制取得させる
+		// 宝石を強制取得させる
 		if (m_player)
 		{
 			m_player->SetHasJewelry(true);
 		}
 	}
 
-	// キーガイド表示制御（最初の部屋にいる間だけ表示し、出たら消え、再進入で再表示）
+	// キーガイド表示制御
 	if (m_player && m_UI)
 	{
 		Math::Vector3 playerPos = m_player->GetPos();
 
 		// 最初の部屋（手前中央：中心 X=0.0, Z=-1.25）の範囲内判定
 		// ※ 部屋の範囲：Xが -1.25 〜 1.25、かつ Zが 0.1 未満（扉手前まで）
-		bool isInFirstRoom = (playerPos.z < 0.1f) && (playerPos.x >= -1.25f && playerPos.x <= 1.5f);
+		bool isInFirstRoom = (playerPos.z < 0.1f) && (playerPos.x >= -1.25f && playerPos.x <= 1.25f);
 
 		// 最初の部屋にいる場合は表示、出ている場合は非表示
 		m_UI->SetVisibleKeyGuide(isInFirstRoom);
@@ -62,10 +61,26 @@ void GameScene::Event()
 	{
 		m_UI->SetVisibleJewelry(true);
 
-		// 全9部屋（0〜8）の敵を一気に生成
+		// 全9部屋の敵を出現させる（初期スポーン済みの部屋はスキップするか、未出現の枠のみ生成）
 		for (int i = 0; i < (int)m_rooms.size(); ++i)
 		{
-			SpawnEnemiesInRoom(i);
+			// 部屋1と部屋4の「最初の1体」は Init() で生成済みのためスキップ
+			int startIdx = 0;
+			if (i == 1 || i == 4)
+			{
+				startIdx = 1; // 2体目以降の座標があればそれを生成（1体目はスキップ）
+			}
+
+			// 指定したインデックス以降の敵を生成
+			for (size_t j = startIdx; j < m_rooms[i].spawnPositions.size(); ++j)
+			{
+				auto newEnemy = std::make_shared<Enemy>();
+				newEnemy->Init();
+				newEnemy->SetTarget(m_player);
+				newEnemy->SetPos(m_rooms[i].spawnPositions[j]);
+
+				m_objList.push_back(newEnemy);
+			}
 		}
 
 		// これ以降、毎フレーム湧き続けないようにフラグを true にする
@@ -183,29 +198,29 @@ void GameScene::Init()
 
 	// --- 手前列 (Z = -1.25f) ---
 	// 部屋 0 (手前・左)
-	m_rooms[0].spawnPositions = { { -3.0f, 0.5f, -1.5f }, { -2.0f, 0.5f, -1.0f } };
+	m_rooms[0].spawnPositions = { { -3.0f, 0.0f, -1.5f }, { -2.0f, 0.0f, -1.0f } };
 	// 部屋 1 (手前・中央)
-	m_rooms[1].spawnPositions = { {  0.0f, 0.5f, -0.00f } };
+	m_rooms[1].spawnPositions = { {  0.0f, 0.0f, -0.00f }, {  0.0f, 0.0f, -1.5f } };
 	// 部屋 2 (手前・右)
-	m_rooms[2].spawnPositions = { {  2.0f, 0.5f, -1.5f }, {  3.0f, 0.5f, -1.0f } };
+	m_rooms[2].spawnPositions = { {  2.0f, 0.0f, -1.5f }, {  3.0f, 0.0f, -1.0f } };
 
 	// --- 中間列 (Z = 1.50f) ---
 	// 部屋 3 (中央・左)
-	m_rooms[3].spawnPositions = { { -3.0f, 0.5f,  1.2f }, { -2.0f, 0.5f,  1.8f } };
+	m_rooms[3].spawnPositions = { { -3.0f, 0.0f,  1.2f }, { -2.0f, 0.0f,  1.8f } };
 	// 部屋 4 (中央・中央)
-	m_rooms[4].spawnPositions = { {  0.0f, 0.5f,  1.5f }, { -0.5f, 0.5f,  1.8f } };
+	m_rooms[4].spawnPositions = { {  0.0f, 0.0f,  1.5f }, { -0.5f, 0.0f,  1.8f } };
 	// 部屋 5 (中央・右)
-	m_rooms[5].spawnPositions = { {  2.0f, 0.5f,  1.2f }, {  3.0f, 0.5f,  1.8f } };
+	m_rooms[5].spawnPositions = { {  2.0f, 0.0f,  1.2f }, {  3.0f, 0.0f,  1.8f } };
 
 	// --- 奥列 (Z = 4.00f) ---
 	// 部屋 6 (奥・左)
-	m_rooms[6].spawnPositions = { { -3.0f, 0.5f,  3.7f }, { -2.0f, 0.5f,  4.3f } };
+	m_rooms[6].spawnPositions = { { -3.0f, 0.0f,  3.7f }, { -2.0f, 0.0f,  4.3f } };
 
 	// ★ 部屋 7 (奥・中央) : 敵を出現させない
 	m_rooms[7].spawnPositions = {};
 
 	// 部屋 8 (奥・右)
-	m_rooms[8].spawnPositions = { {  2.0f, 0.5f,  3.7f }, {  3.0f, 0.5f,  4.3f } };
+	m_rooms[8].spawnPositions = { {  2.0f, 0.0f,  3.7f }, {  3.0f, 0.0f,  4.3f } };
 
 	// =============================================================
 	// ★ 宝石を取得する前：手前中央(部屋1)と中間中央(部屋4)に1体ずつ配置
@@ -227,7 +242,7 @@ void GameScene::Init()
 	// ★ アイテムと宝石の生成・配置
 	// =============================================================
 	std::vector<Math::Vector3> itemPositions = {
-		{ 0.0f,0.0f,-2.90f },
+		//{ 0.0f,0.0f,-2.90f },
 		//{ 0.0f, 0.2f,  1.5f }
 	};
 

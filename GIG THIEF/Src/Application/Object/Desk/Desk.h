@@ -12,6 +12,7 @@ public:
 	void Update() override;
 	void DrawLit() override;
 	void DrawBright() override;
+	void GenerateDepthMapFromLight() override;
 
 	void SetPlayer(const std::shared_ptr<Player>& player) { m_wpPlayer = player; }
 

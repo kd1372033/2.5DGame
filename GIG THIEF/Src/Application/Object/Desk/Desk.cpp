@@ -73,6 +73,13 @@ void Desk::DrawBright()
 	}
 }
 
+void Desk::GenerateDepthMapFromLight()
+{
+	if (!m_model)return;
+
+	KdShaderManager::Instance().m_StandardShader.DrawModel(m_modelWork, m_mWorld);
+}
+
 void Desk::UpdateAnimation()
 {
 	if (!m_spAnimator)

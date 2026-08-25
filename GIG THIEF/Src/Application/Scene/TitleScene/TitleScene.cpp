@@ -28,7 +28,7 @@ void TitleScene::Init()
 {
 	KdAudioManager::Instance().StopAllSound();
 
-	KdAudioManager::Instance().PlayBGM("Asset/Sounds/BGM.wav", 0.1f);
+	KdAudioManager::Instance().PlayBGM("Asset/Sounds/BGM.wav", 0.07f);
 
 	std::shared_ptr<TitleObj> title;
 	title = std::make_shared<TitleObj>();

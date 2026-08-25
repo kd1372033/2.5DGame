@@ -109,6 +109,9 @@ void Enemy::PostUpdate()
 
 	// 3. アイテム索敵
 	CheckItemSearch();
+
+	// 視界ポリゴンの形状を最新の向き・角度に合わせて更新
+	//UpdateViewPolygon();
 }
 
 // =============================================================
@@ -169,34 +172,29 @@ void Enemy::UpdatePatrol(bool& isMoving)
 
 void Enemy::UpdateItemAttract(bool& isMoving)
 {
-	if (m_wpItem.expired())
+	// safe lock: ローカル変数に保持して一貫性を保つ
+	auto pItem = m_wpItem.lock();
+	if (!pItem)
 	{
 		m_itemFlg = false;
 		m_itemAttractTimeout = 0.0f;
 		return;
 	}
 
-	Math::Vector3 itemPos = m_wpItem.lock()->GetPos();
+	Math::Vector3 itemPos = pItem->GetPos();
 	Math::Vector3 vItem = itemPos - m_pos;
 	vItem.y = 0.0f; // XZ平面上の距離
 
 	float dist = vItem.Length();
-
-	// 追従タイムアウトカウンターを進める
 	m_itemAttractTimeout += 1.0f;
 
-	// ★ 回収判定の条件：
-	// 1. 足元（0.3f以内）まで到達した
-	// 2. すでに待機タイマー中（m_itemWaitTimer > 0）
-	// 3. アイテムに向かって歩き始めてから90フレーム（約1.5秒）経過しても到達できない（机等にぶつかって詰まっている）
 	bool isReached = (dist <= 0.3f);
 	bool isTimeout = (m_itemAttractTimeout >= 90.0f);
 
 	if (isReached || isTimeout || m_itemWaitTimer > 0.0f)
 	{
-		isMoving = false; // 停止
+		isMoving = false;
 
-		// 到着（または詰まり検知）した瞬間に注視タイマー開始（3秒間注視）
 		if (m_itemWaitTimer <= 0.0f)
 		{
 			m_itemWaitTimer = 180.0f;
@@ -204,21 +202,19 @@ void Enemy::UpdateItemAttract(bool& isMoving)
 
 		m_itemWaitTimer -= 1.0f;
 
-		// タイマー終了でアイテム消去＆通常状態へ復帰
 		if (m_itemWaitTimer <= 0.0f)
 		{
-			m_wpItem.lock()->OnHit(); // アイテム消去
+			pItem->OnHit(); // 安全に呼び出し
 
 			m_itemFlg = false;
 			m_wpItem.reset();
-			m_itemAttractTimeout = 0.0f; // カウンターリセット
+			m_itemAttractTimeout = 0.0f;
 			m_state = State::Wait;
 			m_timer = 0.0f;
 		}
 	}
 	else
 	{
-		// まだ離れていて時間内の場合は、限界までアイテムへ向かって歩く
 		isMoving = true;
 		vItem.Normalize();
 		m_dir = vItem;
@@ -393,7 +389,7 @@ bool Enemy::IsPlayerInFieldOfView(const std::shared_ptr<Player>& player)
 			{
 				// ヒットした面の法線 m_hitNDir のY成分をチェック
 				// 垂直な面（壁）に当たった場合のみ「見えない」と判定
-				if (std::abs(ret.m_hitNDir.y) < 0.5f)
+				//if (std::abs(ret.m_hitNDir.y) < 0.5f)
 				{
 					return false; // 壁に遮られている
 				}
@@ -535,13 +531,13 @@ void Enemy::CheckPlayerSearch()
 // -------------------------------------------------------------
 // 扇形視界ポリゴンの生成・更新処理
 // -------------------------------------------------------------
-void Enemy::UpdateViewPolygon()
-{
+
+void Enemy::UpdateViewPolygon() {
+
 	if (!m_viewPolygon) return;
 
 	std::vector<KdPolygon::Vertex> vertices;
-
-	const int slice = 16;
+	const int slice = 5;
 	float halfAngle = DirectX::XMConvertToRadians(m_viewAngle * 0.5f);
 
 	unsigned int centerColor = 0xFFFFFFFF;
@@ -549,30 +545,110 @@ void Enemy::UpdateViewPolygon()
 
 	float baseAngle = std::atan2(m_dir.x, m_dir.z);
 
+	// 1. レイの発射位置
+
+	// 腰〜胸の高さ（0.5f）から飛ばすことで床ポリゴンとの誤判定を防止
+
+	Math::Vector3 eyePosW = m_pos;
+	eyePosW.y += 0.5f;
+
+	std::vector<float> rayDistances(slice + 1, m_viewRenderDistance);
+
+	// 2. レイキャストで壁までの距離を計測
+
+	for (int i = 0; i <= slice; ++i) {
+		float t = static_cast<float>(i) / slice;
+		float angle = baseAngle - halfAngle + (halfAngle * 2.0f) * t;
+
+		Math::Vector3 rayDirW = { std::sin(angle), 0.0f, std::cos(angle) };
+		KdCollider::RayInfo ray;
+
+		ray.m_pos = eyePosW;
+		ray.m_dir = rayDirW;
+		ray.m_range = m_viewRenderDistance;
+
+		// TypeGround と TypeBump の両方を検出
+		ray.m_type = KdCollider::TypeGround | KdCollider::TypeBump;
+
+		float minHitDist = m_viewRenderDistance;
+		bool hit = false;
+
+		for (const auto& obj : SceneManager::Instance().GetObjList())
+		{
+			if (obj.get() == this) continue;
+			if (std::dynamic_pointer_cast<Player>(obj)) continue;
+
+			std::list<KdCollider::CollisionResult> retRayList;
+			if (obj->Intersects(ray, &retRayList))
+			{
+				for (const auto& ret : retRayList)
+				{
+					// ★一体型モデル用の法線判定：
+
+					// 法線のY成分の絶対値が 0.5 未満 ＝ 垂直に近い面（壁）
+
+					// ※もしこれでも突き抜ける場合は std::abs(ret.m_hitNDir.y) < 0.8f に緩めてみてください
+
+					if (std::abs(ret.m_hitNDir.y) < 0.5f)
+					{
+						if (ret.m_overlapDistance < minHitDist)
+						{
+							minHitDist = ret.m_overlapDistance;
+							hit = true;
+						}
+					}
+				}
+			}
+		}
+		// 壁にヒットした場合は、壁の厚み＋めり込み防止として 0.2f 手前でカットする
+
+		if (hit)
+		{
+			rayDistances[i] = std::max(0.0f, minHitDist - 0.2f);
+		}
+		else
+		{
+			rayDistances[i] = m_viewRenderDistance;
+		}
+	}
+
+	// 3. ポリゴンの構築
+	// 床よりわずかに浮かす（Zファイティング防止）
+	float polyY = 0.05f;
 	for (int i = 0; i < slice; ++i)
 	{
+
 		float t1 = static_cast<float>(i) / slice;
 		float t2 = static_cast<float>(i + 1) / slice;
 
 		float angle1 = baseAngle - halfAngle + (halfAngle * 2.0f) * t1;
 		float angle2 = baseAngle - halfAngle + (halfAngle * 2.0f) * t2;
 
-		// 頂点0: 中心点
+		float dist1 = rayDistances[i];
+		float dist2 = rayDistances[i + 1];
+
+		Math::Vector3 v0W = eyePosW;
+		Math::Vector3 v1W = eyePosW + Math::Vector3(std::sin(angle1), 0.0f, std::cos(angle1)) * dist1;
+		Math::Vector3 v2W = eyePosW + Math::Vector3(std::sin(angle2), 0.0f, std::cos(angle2)) * dist2;
+
 		KdPolygon::Vertex v0;
-		v0.pos = { 0.0f, 0.08f, 0.0f };
+
+		v0.pos = v0W - m_pos;
+		v0.pos.y = polyY;
 		v0.color = centerColor;
 		v0.UV = { 0.5f, 0.5f };
 		v0.normal = { 0.0f, 1.0f, 0.0f };
 
-		// ★ m_viewRenderDistance を使用して見た目だけ伸ばす
 		KdPolygon::Vertex v1;
-		v1.pos = { std::sin(angle1) * m_viewRenderDistance, 0.08f, std::cos(angle1) * m_viewRenderDistance };
+		v1.pos = v1W - m_pos;
+		v1.pos.y = polyY;
 		v1.color = outerColor;
 		v1.UV = { 0.0f, 0.0f };
 		v1.normal = { 0.0f, 1.0f, 0.0f };
 
 		KdPolygon::Vertex v2;
-		v2.pos = { std::sin(angle2) * m_viewRenderDistance, 0.08f, std::cos(angle2) * m_viewRenderDistance };
+		v2.pos = v2W - m_pos;
+		v2.pos.y = polyY;
 		v2.color = outerColor;
 		v2.UV = { 1.0f, 0.0f };
 		v2.normal = { 0.0f, 1.0f, 0.0f };
@@ -580,6 +656,7 @@ void Enemy::UpdateViewPolygon()
 		vertices.push_back(v0);
 		vertices.push_back(v1);
 		vertices.push_back(v2);
+
 	}
 
 	m_viewPolygon->SetVertices(vertices);
@@ -664,40 +741,86 @@ void Enemy::DrawLit()
 // -------------------------------------------------------------
 void Enemy::DrawUnLit()
 {
-	if (!m_viewPolygon || m_viewPolygon->GetVertices().empty()) return;
+	//if (!m_viewPolygon || m_viewPolygon->GetVertices().empty()) return;
 
-	// アルファブレンド有効・Z書き込み無効化
-	KdShaderManager::Instance().ChangeBlendState(KdBlendState::Alpha);
-	KdShaderManager::Instance().ChangeDepthStencilState(KdDepthStencilState::ZWriteDisable);
+	//KdShaderManager::Instance().ChangeBlendState(KdBlendState::Alpha);
+	//KdShaderManager::Instance().ChangeDepthStencilState(KdDepthStencilState::ZWriteDisable);
 
-	// 描画実行
-	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_viewPolygon, m_mWorld);
+	//// ★ m_mWorld ではなく Math::Matrix::Identity を使用
+	//KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_viewPolygon, Math::Matrix::Identity);
 
-	KdShaderManager::Instance().UndoDepthStencilState();
-	KdShaderManager::Instance().UndoBlendState();
+	//KdShaderManager::Instance().UndoDepthStencilState();
+	//KdShaderManager::Instance().UndoBlendState();
 }
 
-// -------------------------------------------------------------
-// 高輝度（発光・ブルーム）描画パス
-// -------------------------------------------------------------
 void Enemy::DrawBright()
 {
 	if (!m_viewPolygon || m_viewPolygon->GetVertices().empty()) return;
 
-	// 1. 加算合成（Add）に切り替えて光を重ね合わせる
-	KdShaderManager::Instance().ChangeBlendState(KdBlendState::Add);
-
-	// 2. 奥行きの書き込みをオフ（床や壁と透け合わせる）
+	// ★修正ポイント3：デプステストを「有効」、Z書き込みを「無効」にする
+//	// これにより「壁より奥にあるライト」を描画しないようにする
+//	// （通常、半透明はZWriteDisableにするが、これはOK。問題はDepthEnableになっているか）
+//	// KdDirect3D::Instance().GetDevContext()->OMSetDepthStencilState(...) を直接呼ぶか、
+//	// ShaderManagerにそのようなStateがあればそれを使う。
+//	// ここでは、一般的な半透明設定（ZWriteのみDisable、テストはEnable）を指定するStateがあると仮定、
+//	// または Undo で戻せるように明示的に設定する。
+//
+//	// 一般的な3Dエンジンにおける半透明描画の正しいステート：
+//	// RasterizerState: CullBack (背面カリング)
+//	// BlendState: AlphaBlend
+//	// DepthStencilState: DepthEnable=TRUE, DepthWriteMask=ZERO (Z書き込みOFF、テストON)
+	KdShaderManager::Instance().ChangeBlendState(KdBlendState::Alpha);
 	KdShaderManager::Instance().ChangeDepthStencilState(KdDepthStencilState::ZWriteDisable);
 
-	// 3. 超高輝度カラーを設定（緑成分を 3.0f や 5.0f など 1.0f 超えにして発光させる）
-	// ※ R:0.0, G:4.0, B:0.2, A:0.8
-	m_viewPolygon->SetColor(Math::Color(0.5f, 0.0f, 0.0f, 0.8f));
+	m_viewPolygon->SetColor(Math::Color(1.0f, 0.0f, 0.0f, 0.6f));
 
-	// 4. ポリゴンの描画
-	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_viewPolygon, m_mWorld);
+	// ★ 0.5f のスケールをかけて位置を移動させる行列を作成
+	Math::Matrix scaleMat = Math::Matrix::CreateScale(0.5f);
+	Math::Matrix transMat = Math::Matrix::CreateTranslation(m_pos);
+	Math::Matrix polyWorld = scaleMat * transMat;
 
-	// 5. 設定の復元
+	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_viewPolygon, polyWorld);
+
 	KdShaderManager::Instance().UndoDepthStencilState();
 	KdShaderManager::Instance().UndoBlendState();
 }
+
+//void Enemy::DrawUnLit()
+//{
+//	if (!m_viewPolygon || m_viewPolygon->GetVertices().empty()) return;
+//
+//	KdShaderManager::Instance().ChangeBlendState(KdBlendState::Alpha);
+//	KdShaderManager::Instance().ChangeDepthStencilState(KdDepthStencilState::ZWriteDisable);
+//
+//	// ★ m_mWorld ではなく Math::Matrix::Identity を使用
+//	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_viewPolygon, Math::Matrix::Identity);
+//
+//	KdShaderManager::Instance().UndoDepthStencilState();
+//	KdShaderManager::Instance().UndoBlendState();
+//}
+//
+//void Enemy::DrawBright()
+//{
+//	if (!m_viewPolygon || m_viewPolygon->GetVertices().empty()) return;
+//	// -------------------------------------------------------------
+//	// 半透明視界ポリゴンの描画設定（突き抜け防止）
+//	// -------------------------------------------------------------
+//
+//	// 1. アルファブレンドを有効にする
+//	KdShaderManager::Instance().ChangeBlendState(KdBlendState::Alpha);
+//
+//	
+//	KdShaderManager::Instance().ChangeBlendState(KdBlendState::Alpha);
+//	KdShaderManager::Instance().ChangeDepthStencilState(KdDepthStencilState::ZWriteDisable);
+//	// ↑これがもしデプステスト自体も切る設定（DepthEnable=FALSE）なら、
+//	// 壁を突き抜ける原因。テストはONでなければならない。
+//
+//	// 設定を適用して視界ポリゴンを描画
+//	m_viewPolygon->SetColor(Math::Color(1.0f, 0.0f, 0.0f, 0.5f)); // 赤色の半透明
+//	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_viewPolygon, m_mWorld);
+//
+//	// 描画設定を元に戻す
+//	KdShaderManager::Instance().UndoDepthStencilState();
+//	KdShaderManager::Instance().UndoBlendState();
+//
+//}

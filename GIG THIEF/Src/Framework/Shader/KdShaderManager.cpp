@@ -494,6 +494,9 @@ void KdShaderManager::WriteCBPointLight(const std::list<PointLight>& pointLights
 #pragma warning(disable:4239)
 void KdShaderManager::Release()
 {
+	//8/24追加
+	m_pWorkDepthSRV = nullptr; // 参照保持の解除
+
 	m_StandardShader.Release();
 	m_postProcessShader.Release();
 	m_spriteShader.Release();

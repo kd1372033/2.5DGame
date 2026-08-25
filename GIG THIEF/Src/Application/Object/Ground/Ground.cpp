@@ -13,25 +13,25 @@ void Ground::Init()
 
 	// ★ TypeGround と TypeBump を両方登録する（壁としても認識させる）
 	m_front = std::make_shared<KdModelData>();
-	if (m_front->Load("Asset/Models/Stagea/Front.gltf"))
+	if (m_front->Load("Asset/Models/Stage/Front.gltf"))
 	{
 		m_pCollider->RegisterCollisionShape("Front", m_front, KdCollider::TypeGround | KdCollider::TypeBump);
 	}
 
 	m_stage1 = std::make_shared<KdModelData>();
-	if (m_stage1->Load("Asset/Models/Stagea/Stage1.gltf"))
+	if (m_stage1->Load("Asset/Models/Stage/Stage1.gltf"))
 	{
 		m_pCollider->RegisterCollisionShape("Stage1", m_stage1, KdCollider::TypeGround | KdCollider::TypeBump);
 	}
 
 	m_stage2 = std::make_shared<KdModelData>();
-	if (m_stage2->Load("Asset/Models/Stagea/Stage2.gltf"))
+	if (m_stage2->Load("Asset/Models/Stage/Stage2.gltf"))
 	{
 		m_pCollider->RegisterCollisionShape("Stage2", m_stage2, KdCollider::TypeGround | KdCollider::TypeBump);
 	}
 
 	m_stage3 = std::make_shared<KdModelData>();
-	if (m_stage3->Load("Asset/Models/Stagea/Stage3.gltf"))
+	if (m_stage3->Load("Asset/Models/Stage/Stage3.gltf"))
 	{
 		m_pCollider->RegisterCollisionShape("Stage3", m_stage3, KdCollider::TypeGround | KdCollider::TypeBump);
 	}

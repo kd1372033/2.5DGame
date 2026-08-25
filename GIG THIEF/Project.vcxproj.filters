@@ -115,6 +115,9 @@
     <Filter Include="Src\Application\Object\GameObj">
       <UniqueIdentifier>{20cc743a-2dc1-4e26-9346-c2c3677520e7}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Framework\Shader\DecalShader">
+      <UniqueIdentifier>{fc13eca2-f0d6-43b1-a8d7-83bff5e312d7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Pch.h">
@@ -327,6 +330,9 @@
     <ClInclude Include="Src\Application\Object\GameObj\GameObj.h">
       <Filter>Src\Application\Object\GameObj</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Framework\Shader\DecalShader\DecalShader.h">
+      <Filter>Src\Framework\Shader\DecalShader</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Pch.cpp">
@@ -509,6 +515,9 @@
     <ClCompile Include="Src\Application\Object\GameObj\GameObj.cpp">
       <Filter>Src\Application\Object\GameObj</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Framework\Shader\DecalShader\DecalShader.cpp">
+      <Filter>Src\Framework\Shader\DecalShader</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Src\Framework\Shader\inc_KdCommon.hlsli">
@@ -522,6 +531,9 @@
     </None>
     <None Include="Src\Framework\Shader\StandardShader\inc_KdStandardShader.hlsli">
       <Filter>Src\Framework\Shader\StandardShader</Filter>
+    </None>
+    <None Include="Src\Framework\Shader\DecalShader\DecalShader.hlsli">
+      <Filter>Src\Framework\Shader\DecalShader</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -560,6 +572,9 @@
     </FxCompile>
     <FxCompile Include="Src\Framework\Shader\StandardShader\KdStandardShader_VS_UnLit.hlsl">
       <Filter>Src\Framework\Shader\StandardShader</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Framework\Shader\DecalShader\DecalShader.hlsl">
+      <Filter>Src\Framework\Shader\DecalShader</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

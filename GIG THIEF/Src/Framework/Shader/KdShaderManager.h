@@ -209,6 +209,10 @@ public:
 	const KdAmbientController& GetAmbientController() const { return m_ambientController; }
 	KdAmbientController& WorkAmbientController() { return m_ambientController; }
 
+	// 8/24追加：デカール等で使用する深度バッファ(SRV)の取得・設定
+	ID3D11ShaderResourceView* GetWorkDepthSRV() const { return m_pWorkDepthSRV; }
+	void SetWorkDepthSRV(ID3D11ShaderResourceView* pSRV) { m_pWorkDepthSRV = pSRV; }
+
 	// 解放
 	void Release();
 
@@ -230,6 +234,9 @@ private:
 	KdAmbientController m_ambientController;
 
 	bool m_pixelArtStyle = true;
+
+	// 8/24追加：作業用深度SRVの保持用ポインタ
+	ID3D11ShaderResourceView* m_pWorkDepthSRV = nullptr;
 
 	//==========================
 	//
