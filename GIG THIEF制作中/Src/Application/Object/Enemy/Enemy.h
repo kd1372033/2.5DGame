@@ -113,9 +113,12 @@ private:
 	// 視界メッシュ描画用のポリゴン
 	//std::shared_ptr<KdPolygon> m_viewPolygon = nullptr;
 	std::shared_ptr<VisionPolygon> m_viewPolygon = nullptr;
+	// サーチライトデカール用
+	std::shared_ptr<KdSquarePolygon> m_decalPolygon = nullptr;
 	Math::Vector3 m_pos;
 	Math::Vector3 m_dir;
 	Math::Vector3 m_targetPos = { 0, 0, 0 };
+	Math::Matrix m_decalWorld;
 
 	int m_dirID = 0; // 0:下, 1:左, 2:右, 3:上
 	float m_anime = 0.0f;
