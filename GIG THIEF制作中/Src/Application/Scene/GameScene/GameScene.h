@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "../BaseScene/BaseScene.h"
+#include "../../../Framework/Shader/KdShaderManager.h"
 
 class Player;
 class GameUI;
@@ -13,6 +14,7 @@ public:
 private:
 	void Event() override;
 	void Init()  override;
+	// void DrawPostEffect() override;
 
 
 	// =============================================================
@@ -34,4 +36,7 @@ private:
 	bool m_hasSpawnedEnemies = false;
 
 	bool m_hasHiddenKeyGuide = false;
+
+	// スポットライト用のテクスチャ
+	std::shared_ptr<KdTexture> m_spLightTexture = nullptr;
 };

@@ -540,65 +540,135 @@ void Enemy::CheckPlayerSearch()
 // 扇形視界ポリゴンの生成・更新処理
 // -------------------------------------------------------------
 
-// 8/25
-void Enemy::UpdateViewPolygon()
-{
-	if (!m_decalPolygon) return;
+void Enemy::UpdateViewPolygon() {
 
-	// 1. ライトの発射位置（腰〜胸の高さ）
-	Math::Vector3 eyePos = m_pos;
-	eyePos.y += 0.05f;
+	if (!m_viewPolygon) return;
 
-	// 2. 正面の壁へのレイキャスト
-	KdCollider::RayInfo ray;
-	ray.m_pos = eyePos;
-	ray.m_dir = m_dir; // 敵の現在向いている方向
-	ray.m_range = m_viewRenderDistance; // 最大照射距離
-	ray.m_type = KdCollider::TypeGround | KdCollider::TypeBump;
+	std::vector<KdPolygon::Vertex> vertices;
 
-	float actualDistance = m_viewRenderDistance;
+	unsigned int centerColor = 0xFFFFFFFF;
+	unsigned int outerColor = 0x00FFFFFF;
+
+	// 1. 向きベクトルの正規化
+	Math::Vector3 dir = m_dir;
+	dir.y = 0.0f;
+	if (dir.LengthSquared() == 0.0f) dir = { 0.0f, 0.0f, 1.0f };
+	dir.Normalize();
+
+	float halfAngle = DirectX::XMConvertToRadians(m_viewAngle * 0.5f);
+	float baseAngle = std::atan2(dir.x, dir.z);
+
+	// 2. 正面レイキャスト（壁判定）
+	Math::Vector3 eyePosW = m_pos + Math::Vector3(0.0f, 0.5f, 0.0f);
+
+	KdCollider::RayInfo frontRay;
+	frontRay.m_pos = eyePosW;
+	frontRay.m_dir = dir;
+	frontRay.m_range = m_viewRenderDistance;
+	frontRay.m_type = KdCollider::TypeGround | KdCollider::TypeBump;
+
+	float minHitDist = m_viewRenderDistance;
+	bool isHitWall = false;
+	Math::Vector3 wallNormal = Math::Vector3::Zero;
 
 	for (const auto& obj : SceneManager::Instance().GetObjList())
 	{
 		if (obj.get() == this || std::dynamic_pointer_cast<Player>(obj)) continue;
 
 		std::list<KdCollider::CollisionResult> retRayList;
-		if (obj->Intersects(ray, &retRayList))
+		if (obj->Intersects(frontRay, &retRayList))
 		{
 			for (const auto& ret : retRayList)
 			{
-				// 垂直な面（壁）に当たったら、その手前で光を止める
-				if (std::abs(ret.m_hitNDir.y) < 0.5f)
+				if (std::abs(ret.m_hitNDir.y) < 0.3f)
 				{
-					// 壁の手前 0.1f で止めることで貫通を防ぐ
-					float hitDist = std::max(0.0f, ret.m_overlapDistance - 0.1f);
-					if (hitDist < actualDistance)
+					if (ret.m_overlapDistance < minHitDist)
 					{
-						actualDistance = hitDist;
+						minHitDist = ret.m_overlapDistance;
+						wallNormal = ret.m_hitNDir;
+						isHitWall = true;
 					}
 				}
 			}
 		}
 	}
 
-	// 3. 回転行列を作成
-	// ① 板ポリを床に寝かせる回転（X軸 90度）
-	Math::Matrix rotXMat = Math::Matrix::CreateRotationX(DirectX::XMConvertToRadians(90.0f));
+	// 3. 左右の斜め方向の距離を正しく計算（コサイン補正）
+	float angleLeft = baseAngle - halfAngle;
+	float angleRight = baseAngle + halfAngle;
 
-	// ② 敵の向いている方向へのY軸回転
-	float angleY = std::atan2(m_dir.x, m_dir.z);
-	Math::Matrix rotYMat = Math::Matrix::CreateRotationY(angleY);
+	Math::Vector3 dirLeft = { std::sin(angleLeft),  0.0f, std::cos(angleLeft) };
+	Math::Vector3 dirRight = { std::sin(angleRight), 0.0f, std::cos(angleRight) };
 
-	// 4. スケールと位置
-	Math::Matrix scaleMat = Math::Matrix::CreateScale(1.5f, 1.0f, actualDistance);
+	// 正面距離(minHitDist)をベースに、左右の斜め辺の到達距離を補正
+	// (斜め方向の直線距離 = 正面距離 / cos(halfAngle))
+	float cosVal = std::cos(halfAngle);
+	float frontFloorDist = isHitWall ? std::max(0.0f, minHitDist - 0.02f) : m_viewRenderDistance;
 
-	Math::Vector3 decalPos = m_pos;
-	decalPos.y += 0.05f; // 床の上に置く
-	Math::Matrix transMat = Math::Matrix::CreateTranslation(decalPos);
+	// 床を伸びる距離（左右）
+	float sideFloorDist = frontFloorDist / cosVal;
 
-	// ★ 行列の合成順序（重要）
-	// 拡大 -> 床に倒す -> 敵の向きに回す -> 位置移動
-	m_decalWorld = scaleMat * rotXMat * rotYMat * transMat;
+	float polyY = 0.05f;
+
+	// 4. 頂点座標の構築
+	Math::Vector3 v0_pos = m_pos + Math::Vector3(0.0f, polyY, 0.0f);
+
+	Math::Vector3 v1_floor = m_pos + dirLeft * sideFloorDist + Math::Vector3(0.0f, polyY, 0.0f);
+	Math::Vector3 v2_floor = m_pos + dirRight * sideFloorDist + Math::Vector3(0.0f, polyY, 0.0f);
+
+	KdPolygon::Vertex v0, v1_f, v2_f;
+
+	v0.pos = v0_pos;
+	v0.color = centerColor;
+	v0.UV = { 0.5f, 0.5f };
+	v0.normal = { 0.0f, 1.0f, 0.0f };
+
+	v1_f.pos = v1_floor;
+	v1_f.color = isHitWall ? centerColor : outerColor;
+	v1_f.UV = { 0.0f, 0.0f };
+	v1_f.normal = { 0.0f, 1.0f, 0.0f };
+
+	v2_f.pos = v2_floor;
+	v2_f.color = isHitWall ? centerColor : outerColor;
+	v2_f.UV = { 1.0f, 0.0f };
+	v2_f.normal = { 0.0f, 1.0f, 0.0f };
+
+	// 床面
+	vertices.push_back(v0);
+	vertices.push_back(v1_f);
+	vertices.push_back(v2_f);
+
+	// 5. 壁面の立ち上げ（壁衝突時のみ）
+	if (isHitWall)
+	{
+		// 余り距離（立ち上げる高さ）＝ 設定最大距離 - 壁までの正面距離
+		float excess = m_viewRenderDistance - frontFloorDist;
+
+		Math::Vector3 v1_wall = v1_floor + (wallNormal * 0.02f) + Math::Vector3(0.0f, excess, 0.0f);
+		Math::Vector3 v2_wall = v2_floor + (wallNormal * 0.02f) + Math::Vector3(0.0f, excess, 0.0f);
+
+		KdPolygon::Vertex v1_w, v2_w;
+
+		v1_w.pos = v1_wall;
+		v1_w.color = outerColor;
+		v1_w.UV = { 0.0f, 0.0f };
+		v1_w.normal = wallNormal;
+
+		v2_w.pos = v2_wall;
+		v2_w.color = outerColor;
+		v2_w.UV = { 1.0f, 0.0f };
+		v2_w.normal = wallNormal;
+
+		vertices.push_back(v1_f);
+		vertices.push_back(v1_w);
+		vertices.push_back(v2_w);
+
+		vertices.push_back(v1_f);
+		vertices.push_back(v2_w);
+		vertices.push_back(v2_f);
+	}
+
+	m_viewPolygon->SetVertices(vertices);
 }
 
 // 8/25前
@@ -805,16 +875,7 @@ void Enemy::DrawLit()
 {
 	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_polygon, m_mWorld);
 
-	if (m_decalPolygon)
-	{
-		KdShaderManager::Instance().ChangeBlendState(KdBlendState::Add);
-		KdShaderManager::Instance().ChangeDepthStencilState(KdDepthStencilState::ZWriteDisable);
 
-		KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_decalPolygon, m_decalWorld);
-
-		KdShaderManager::Instance().UndoDepthStencilState();
-		KdShaderManager::Instance().UndoBlendState();
-	}
 }
 
 // -------------------------------------------------------------
@@ -822,6 +883,7 @@ void Enemy::DrawLit()
 // -------------------------------------------------------------
 void Enemy::DrawUnLit()
 {
+
 	//if (!m_viewPolygon || m_viewPolygon->GetVertices().empty()) return;
 
 	//KdShaderManager::Instance().ChangeBlendState(KdBlendState::Alpha);
@@ -836,36 +898,19 @@ void Enemy::DrawUnLit()
 
 void Enemy::DrawBright()
 {
-	// 8/25追加
 	if (!m_viewPolygon || m_viewPolygon->GetVertices().empty()) return;
 
-	// ★修正ポイント3：デプステストを「有効」、Z書き込みを「無効」にする
-	// これにより「壁より奥にあるライト」を描画しないようにする
-	// （通常、半透明はZWriteDisableにするが、これはOK。問題はDepthEnableになっているか）
-	// KdDirect3D::Instance().GetDevContext()->OMSetDepthStencilState(...) を直接呼ぶか、
-	// ShaderManagerにそのようなStateがあればそれを使う。
-	// ここでは、一般的な半透明設定（ZWriteのみDisable、テストはEnable）を指定するStateがあると仮定、
-	// または Undo で戻せるように明示的に設定する。
-
-	// 一般的な3Dエンジンにおける半透明描画の正しいステート：
-	// RasterizerState: CullBack (背面カリング)
-	// BlendState: AlphaBlend
-	// DepthStencilState: DepthEnable=TRUE, DepthWriteMask=ZERO (Z書き込みOFF、テストON)
 	KdShaderManager::Instance().ChangeBlendState(KdBlendState::Alpha);
 	KdShaderManager::Instance().ChangeDepthStencilState(KdDepthStencilState::ZWriteDisable);
 
-	//m_viewPolygon->SetColor(Math::Color(1.0f, 0.0f, 0.0f, 0.6f));
-	m_decalPolygon->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+	m_viewPolygon->SetColor(Math::Color(1.0f, 0.0f, 0.0f, 0.6f));
 
-	// ★ 0.5f のスケールをかけて位置を移動させる行列を作成
-	Math::Matrix scaleMat = Math::Matrix::CreateScale(0.5f);
-	Math::Matrix transMat = Math::Matrix::CreateTranslation(m_pos);
-	Math::Matrix polyWorld = scaleMat * transMat;
-
-	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_decalPolygon, polyWorld);
+	// ★ 単位行列（Identity）を指定して、計算したワールド座標をそのまま描画する
+	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_viewPolygon, Math::Matrix::Identity);
 
 	KdShaderManager::Instance().UndoDepthStencilState();
 	KdShaderManager::Instance().UndoBlendState();
+
 
 	// 8/25前
 	//if (!m_viewPolygon || m_viewPolygon->GetVertices().empty()) return;

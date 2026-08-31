@@ -132,6 +132,11 @@ void GameScene::Init()
 
 	m_camera = std::make_unique<KdCamera>();
 
+	// 8/26追加
+	m_spLightTexture = std::make_shared<KdTexture>();
+	m_spLightTexture->Load("Asset/Textures/Light.png");
+
+
 	m_player = std::make_shared<Player>();
 	m_objList.push_back(m_player);
 
@@ -263,6 +268,30 @@ void GameScene::Init()
 
 	m_hasHiddenKeyGuide = false;
 }
+
+//void GameScene::DrawPostEffect()
+//{
+//	Math::Matrix viewProj = m_camera->GetCameraViewMatrix() * m_camera->GetProjMatrix();
+//	Math::Matrix invViewProj = viewProj.Invert();
+//
+//	auto& postProcess = KdShaderManager::Instance().m_postProcessShader;
+//
+//	for (auto& obj : SceneManager::Instance().GetObjList())
+//	{
+//		if (auto enemy = std::dynamic_pointer_cast<Enemy>(obj))
+//		{
+//			Math::Matrix lightViewProj = enemy->GetLightViewProjectionMatrix();
+//			postProcess.SetLightProjectorMatrix(invViewProj, lightViewProj);
+//
+//			postProcess.DrawLightProjector(
+//				postProcess.GetPostEffectRTTex(),
+//				postProcess.GetPostEffectZBuffer(),
+//				m_spLightTexture, // ★ ロードした変数を渡す
+//				postProcess.GetPostEffectRTTex()
+//			);
+//		}
+//	}
+//}
 
 /*
 部屋番号,位置,"中央座標 (X, Y, Z)"

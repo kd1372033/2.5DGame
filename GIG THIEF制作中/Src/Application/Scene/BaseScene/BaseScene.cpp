@@ -117,6 +117,10 @@ void BaseScene::Draw()
 		}
 	}
 	KdShaderManager::Instance().m_postProcessShader.EndBright();
+
+	// ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== ===== =====
+	// ★追加: 3Dオブジェクトの全描画完了後、画面全体にポストエフェクト（デカール投影）を適用
+	DrawPostEffect();
 }
 
 void BaseScene::DrawSprite()
@@ -155,4 +159,9 @@ void BaseScene::Event()
 void BaseScene::Init()
 {
 	// 各シーンで必要な内容を実装(オーバーライド)する
+}
+
+void BaseScene::DrawPostEffect()
+{
+
 }

@@ -39,6 +39,11 @@ public:
 	void SetClearFlag(bool isClear) { m_isClear = isClear; }
 	bool GetClearFlag() const { return m_isClear; }
 
+	// 8/26
+	// カメラ行列を取得するゲッターを追加
+	const Math::Matrix& GetCameraView() const { return m_mCameraView; }
+	const Math::Matrix& GetCameraProj() const { return m_mCameraProj; }
+
 private:
 
 	// マネージャーの初期化
@@ -63,6 +68,10 @@ private:
 
 	// 新規追加
 	bool m_isClear = false;
+
+	// 8/26
+	Math::Matrix m_mCameraView;
+	Math::Matrix m_mCameraProj;
 
 private:
 

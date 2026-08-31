@@ -33,6 +33,8 @@ protected:
 	// 継承先シーンで必要ならオーバーライドする
 	virtual void Event();
 	virtual void Init();
+	virtual void DrawPostEffect(); // ★追加: ポスプロ描画用関数
+
 
 	std::unique_ptr<KdCamera> m_camera = nullptr;
 

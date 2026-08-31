@@ -22,7 +22,7 @@ bool KdPostProcessShader::Init()
 
 		if (FAILED(KdDirect3D::Instance().WorkDev()->CreateInputLayout(
 			&layout[0], (UINT)layout.size(), compiledBuffer,
-			sizeof(compiledBuffer), &m_inputLayout)) ) 
+			sizeof(compiledBuffer), &m_inputLayout)))
 		{
 			assert(0 && "CreateInputLayout失敗");
 			Release();
@@ -35,21 +35,20 @@ bool KdPostProcessShader::Init()
 #include "KdPostProcessShader_PS_Blur.shaderInc"
 
 		if (FAILED(KdDirect3D::Instance().WorkDev()->CreatePixelShader(
-			compiledBuffer, sizeof(compiledBuffer), nullptr, &m_PS_Blur))) 
+			compiledBuffer, sizeof(compiledBuffer), nullptr, &m_PS_Blur)))
 		{
 			assert(0 && "ピクセルシェーダー作成失敗");
 			Release();
-			
+
 			return false;
 		}
-
 	}
 
 	{
 #include "KdPostProcessShader_PS_DoF.shaderInc"
 
 		if (FAILED(KdDirect3D::Instance().WorkDev()->CreatePixelShader(
-			compiledBuffer, sizeof(compiledBuffer), nullptr, &m_PS_DoF))) 
+			compiledBuffer, sizeof(compiledBuffer), nullptr, &m_PS_DoF)))
 		{
 			assert(0 && "ピクセルシェーダー作成失敗");
 			Release();
@@ -62,7 +61,7 @@ bool KdPostProcessShader::Init()
 #include "KdPostProcessShader_PS_Bright.shaderInc"
 
 		if (FAILED(KdDirect3D::Instance().WorkDev()->CreatePixelShader(
-			compiledBuffer, sizeof(compiledBuffer), nullptr, &m_PS_Bright))) 
+			compiledBuffer, sizeof(compiledBuffer), nullptr, &m_PS_Bright)))
 		{
 			assert(0 && "ピクセルシェーダー作成失敗");
 			Release();
@@ -71,14 +70,27 @@ bool KdPostProcessShader::Init()
 		}
 	}
 
+	// ★追加: ライト投影用ピクセルシェーダーの生成
+	{
+#include "PostProcessShader_PS_LightProjector.shaderInc" // ※ヘッダー名が異なる場合は修正してください
+
+		if (FAILED(KdDirect3D::Instance().WorkDev()->CreatePixelShader(
+			compiledBuffer, sizeof(compiledBuffer), nullptr, &m_PS_LightProjector)))
+		{
+			assert(0 && "ライト投影ピクセルシェーダー作成失敗");
+			Release();
+
+			return false;
+		}
+	}
+
 	m_cb0_BlurInfo.Create();
-
 	m_cb0_DoFInfo.Create();
-
 	m_cb0_BrightInfo.Create();
+	m_cb0_LightProjectorInfo.Create(); // ★追加: 定数バッファの生成
 
 	const std::shared_ptr<KdTexture>& backBuffer = KdDirect3D::Instance().GetBackBuffer();
-	
+
 	// ポストプロセス用のシーンの全描画用画像
 	m_postEffectRTPack.CreateRenderTarget(backBuffer->GetWidth(), backBuffer->GetHeight(), true);
 
@@ -88,7 +100,7 @@ bool KdPostProcessShader::Init()
 
 	// 被写界深度画像
 	m_depthOfFieldRTPack.CreateRenderTarget(backBuffer->GetWidth(), backBuffer->GetHeight());
-	
+
 	m_brightEffectRTPack.CreateRenderTarget(backBuffer->GetWidth(), backBuffer->GetHeight());
 
 	int lightBloomWidth = m_brightEffectRTPack.m_RTTexture->GetWidth();
@@ -109,7 +121,7 @@ bool KdPostProcessShader::Init()
 	m_screenVert[2] = { { 1,-1,0}, {1, 1} };
 	m_screenVert[3] = { { 1, 1,0}, {1, 0} };
 
-	SetBrightThreshold( 1.2f );
+	SetBrightThreshold(1.2f);
 
 	return true;
 }
@@ -126,10 +138,12 @@ void KdPostProcessShader::Release()
 	KdSafeRelease(m_PS_Blur);
 	KdSafeRelease(m_PS_DoF);
 	KdSafeRelease(m_PS_Bright);
+	KdSafeRelease(m_PS_LightProjector); // ★追加: PSの解放
 
 	m_cb0_BlurInfo.Release();
 	m_cb0_DoFInfo.Release();
 	m_cb0_BrightInfo.Release();
+	m_cb0_LightProjectorInfo.Release(); // ★追加: 定数バッファの解放
 }
 
 // ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
@@ -205,7 +219,7 @@ void KdPostProcessShader::LightBloomProcess()
 	for (int i = 0; i < kLightBloomNum; ++i)
 	{
 		GenerateBlurTexture(srcRTTex, m_lightBloomRTPack[i].m_RTTexture, m_lightBloomRTPack[i].m_viewPort, kBlurSamplingRadius);
-			
+
 		srcRTTex = m_lightBloomRTPack[i].m_RTTexture;
 	}
 
@@ -357,6 +371,7 @@ void KdPostProcessShader::SetBlurInfo(const std::shared_ptr<KdTexture>& spSrcTex
 	SetBlurInfo(blurOffsetList);
 }
 
+
 void KdPostProcessShader::SetBlurInfo(const std::vector<Math::Vector3>& srcInfo)
 {
 	KdPostProcessShader::cbBlur& blurInfo = m_cb0_BlurInfo.Work();
@@ -437,4 +452,69 @@ void KdPostProcessShader::SetBrightToDevice()
 	}
 
 	shaderMgr.SetPixelShader(m_PS_Bright);
+}
+
+// ★追加: 未解決の外部シンボル（LNK2019）解消用関数
+void KdPostProcessShader::SetLightProjectorToDevice()
+{
+	ID3D11DeviceContext* DevCon = KdDirect3D::Instance().WorkDevContext();
+	if (!DevCon) { return; }
+
+	// ライト投影用定数バッファの書き込みとバインド (b0 レジスタ)
+	m_cb0_LightProjectorInfo.Write();
+	DevCon->PSSetConstantBuffers(0, 1, m_cb0_LightProjectorInfo.GetAddress());
+
+	KdShaderManager& shaderMgr = KdShaderManager::Instance();
+
+	if (shaderMgr.SetVertexShader(m_VS))
+	{
+		DevCon->IASetInputLayout(m_inputLayout);
+	}
+
+	shaderMgr.SetPixelShader(m_PS_LightProjector);
+}
+
+void KdPostProcessShader::DrawLightProjector(
+	const std::shared_ptr<KdTexture>& spSrcTex,
+	const std::shared_ptr<KdTexture>& spDepthTex,
+	const std::shared_ptr<KdTexture>& spLightTex,
+	const std::shared_ptr<KdTexture>& spDstTex)
+{
+	if (!m_PS_LightProjector) return;
+
+	ID3D11DeviceContext* pContext = KdDirect3D::Instance().WorkDevContext();
+	if (!pContext) return;
+
+	// 1. レンダーターゲットの変更（出力先を設定）
+	KdRenderTargetChanger RTChanger;
+	if (spDstTex)
+	{
+		RTChanger.ChangeRenderTarget(spDstTex);
+	}
+
+	// 2. テクスチャをセット (t0: 元画面, t1: Depth, t2: ライト画像)
+	ID3D11ShaderResourceView* srvs[3] = {
+		spSrcTex ? spSrcTex->WorkSRView() : nullptr,
+		spDepthTex ? spDepthTex->WorkSRView() : nullptr,
+		spLightTex ? spLightTex->WorkSRView() : nullptr
+	};
+	pContext->PSSetShaderResources(0, 3, srvs);
+
+	// 3. シェーダーと定数バッファをデバイスにセット
+	SetLightProjectorToDevice();
+
+	// 4. 画面全体（板ポリゴン）の描画を実行
+	KdDirect3D::Instance().DrawVertices(
+		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP,
+		4,
+		&m_screenVert[0],
+		sizeof(Vertex)
+	);
+
+	// 5. SRV（テクスチャ）のバインド解除
+	ID3D11ShaderResourceView* nullSRVs[3] = { nullptr, nullptr, nullptr };
+	pContext->PSSetShaderResources(0, 3, nullSRVs);
+
+	// レンダーターゲットを元に戻す
+	RTChanger.UndoRenderTarget();
 }

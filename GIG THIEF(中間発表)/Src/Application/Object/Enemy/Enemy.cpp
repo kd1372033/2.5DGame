@@ -537,7 +537,7 @@ void Enemy::UpdateViewPolygon() {
 	if (!m_viewPolygon) return;
 
 	std::vector<KdPolygon::Vertex> vertices;
-	const int slice = 5;
+	const int slice = 4;
 	float halfAngle = DirectX::XMConvertToRadians(m_viewAngle * 0.5f);
 
 	unsigned int centerColor = 0xFFFFFFFF;
