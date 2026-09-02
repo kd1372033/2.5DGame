@@ -160,7 +160,7 @@ private:
 	// 視界パラメータ
 	float m_viewAngle = 50.0f;     // 視野角
 	float m_viewDistance = 1.0f;   // 視界の届く最大距離（0.7f から 2.0f〜3.0f に拡張）
-	float m_viewRenderDistance = 2.25f; // サーチライトの見た目の長さ
+	float m_viewRenderDistance = 1.01f; // サーチライトの見た目の長さ
 
 	float m_itemAttractTimeout = 0.0f; // アイテム追従開始からの経過時間
 };

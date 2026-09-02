@@ -196,7 +196,7 @@ void Enemy::UpdateItemAttract(bool& isMoving)
 	float dist = vItem.Length();
 	m_itemAttractTimeout += 1.0f;
 
-	bool isReached = (dist <= 0.3f);
+	bool isReached = (dist <= 0.2f);
 	bool isTimeout = (m_itemAttractTimeout >= 90.0f);
 
 	if (isReached || isTimeout || m_itemWaitTimer > 0.0f)
@@ -305,7 +305,7 @@ void Enemy::CheckCollision()
 	KdCollider::SphereInfo sphere;
 	sphere.m_sphere.Center = m_pos;
 	sphere.m_sphere.Center.y += 0.3f;
-	sphere.m_sphere.Radius = 0.3f;
+	sphere.m_sphere.Radius = 0.2f;
 	sphere.m_type = KdCollider::Type::TypeGround;
 
 	std::list<KdCollider::CollisionResult> retSphereList;

@@ -214,7 +214,7 @@ void Player::PickUpItem()
 		float dist = (item->GetPos() - m_pos).Length();
 
 		// 重なったら自動で拾う
-		if (dist <= 0.2f)
+		if (dist <= 0.25f)
 		{
 			m_pHeldItem = item;
 			m_pHeldItem->PickUp(std::dynamic_pointer_cast<Player>(shared_from_this()));
