@@ -305,7 +305,7 @@ void Enemy::CheckCollision()
 	KdCollider::SphereInfo sphere;
 	sphere.m_sphere.Center = m_pos;
 	sphere.m_sphere.Center.y += 0.3f;
-	sphere.m_sphere.Radius = 0.2f;
+	sphere.m_sphere.Radius = m_collisionArea;
 	sphere.m_type = KdCollider::Type::TypeGround;
 
 	std::list<KdCollider::CollisionResult> retSphereList;
@@ -340,6 +340,10 @@ void Enemy::CheckCollision()
 	{
 		m_pos.x += hitDir.x * maxOverlap;
 		m_pos.z += hitDir.z * maxOverlap;
+	}
+	if (s_showDebugWire)
+	{
+		m_pDebugWire->AddDebugSphere(m_pos, m_collisionArea, kNormalColor);
 	}
 }
 
