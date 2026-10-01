@@ -23,6 +23,19 @@ struct KdAmbientParameter
 	float			m_heightFogTopValue = 0.0f;			// フォグを開始する上限の高さ
 	float			m_heightFogBottomValue = 0.0f;		// フォグ色に染まる下限の高さ
 	float			m_heightFogBeginDistance = 0.0f;	// フォグの開始する距離
+
+	// コーンライト用パラメータ
+	bool m_coneLightEnable = false;
+	Math::Vector3 m_coneLightPos = { 0.0f, 0.0f, 0.0f };
+	Math::Vector3 m_coneLightDir = { 0.0f, 0.0f, 1.0f };
+	float m_coneLightAngle = 0.0f;
+	float m_coneLightRange = 0.0f;
+	Math::Vector3 m_coneLightColor = { 0.0f, 0.0f, 0.0f };
+
+	// 2026/09/10 追加: 遮蔽判定用パラメータ
+	bool m_coneLightIsHit = false;
+	Math::Vector3 m_coneLightHitPos = { 0.0f, 0.0f, 0.0f };
+	Math::Vector3 m_coneLightHitNormal = { 0.0f, 0.0f, 0.0f };
 };
 
 // ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
@@ -65,9 +78,23 @@ public:
 	// 高さフォグの設定
 	void SetheightFog(const Math::Vector3& col, float topValue, float bottomValue, float distance);
 
+	void SetConeLightEnable(bool enable);
+
+	// 2026/09/10 追加: コーンライト設定
+	void SetConeLight(
+		const Math::Vector3& pos,
+		const Math::Vector3& dir,
+		float angle,
+		float range,
+		const Math::Vector3& col,
+		bool isHit = false,
+		const Math::Vector3& hitPos = Math::Vector3::Zero,
+		const Math::Vector3& hitNormal = Math::Vector3::Zero
+	);
+
 private:
 
-	void WriteLightParams(); 
+	void WriteLightParams();
 	void WriteFogParams();
 
 	KdAmbientParameter m_parameter;
@@ -85,4 +112,5 @@ private:
 	bool m_dirtyLightDir = true;
 	bool m_dirtyFogDist = true;
 	bool m_dirtyFogHeight = true;
+	bool m_dirtyConeLight = true;
 };

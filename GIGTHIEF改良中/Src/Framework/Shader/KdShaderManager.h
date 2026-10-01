@@ -9,7 +9,8 @@ struct PointLight
 {
 	PointLight() {}
 	PointLight(const Math::Vector3& color, float radius, const Math::Vector3& pos, int isBright)
-		:Color(color), Radius(radius), Pos(pos), IsBright(isBright) {}
+		:Color(color), Radius(radius), Pos(pos), IsBright(isBright) {
+	}
 
 	Math::Vector3 Color;	// 色
 	float	Radius = 0.0f;	// 半径
@@ -22,12 +23,13 @@ struct PointLight
 // 各パイプラインステートの呼び出しID
 //
 //==========================
+
 // 深度情報の影響・書き込みの制御ステート
 enum class KdDepthStencilState
 {
-	ZEnable,		// 手前の物に隠れる　○、自分の奥の物を隠す　○（基本の3D描画ステート
-	ZWriteDisable,	// 手前の物に隠れる　○、自分の奥の物を隠す　×
-	ZDisable,		// 手前の物に隠れる　×、自分の奥の物を隠す　×
+	ZEnable,		// 手前の物に隠れる ○、自分の奥の物を隠す ○（基本の3D描画ステート
+	ZWriteDisable,	// 手前の物に隠れる ○、自分の奥の物を隠す ×
+	ZDisable,		// 手前の物に隠れる ×、自分の奥の物を隠す ×
 	Max
 };
 
@@ -53,10 +55,10 @@ enum class KdSamplerState
 {
 	Anisotropic_Wrap,	// 異方性補間：テクスチャ繰り返し
 	Anisotropic_Clamp,	// 異方性補間：テクスチャ範囲外は端のピクセルを延長
-	Linear_Clamp,		// 線形補間：　テクスチャ範囲外は端のピクセルを延長
-	Linear_Clamp_Cmp,	// 線形補間：　テクスチャ範囲外は端のピクセルを延長・比較機能付き
-	Point_Wrap,			// 補間なし：　テクスチャ繰り返し
-	Point_Clamp,		// 補間なし：　テクスチャ範囲外は端のピクセルを延長
+	Linear_Clamp,		// 線形補間： テクスチャ範囲外は端のピクセルを延長
+	Linear_Clamp_Cmp,	// 線形補間： テクスチャ範囲外は端のピクセルを延長・比較機能付き
+	Point_Wrap,			// 補間なし： テクスチャ繰り返し
+	Point_Clamp,		// 補間なし： テクスチャ範囲外は端のピクセルを延長
 	Max
 };
 
@@ -110,6 +112,29 @@ public:
 		float				_blank2 = 0.0f;
 
 		Math::Matrix		DirLight_mVP;					// ビュー行列と正射影行列の合成行列
+
+		//-----------------
+		// 2.5D コーンライト
+		//-----------------
+		int					ConeLight_Enable = 0;			// 有効フラグ
+		Math::Vector3		ConeLight_Pos = { 0, 0, 0 };	// ライト座標
+
+		Math::Vector3		ConeLight_Dir = { 0, -1, 0 };	// ライト照射方向
+		float				ConeLight_Angle = 45.0f;		// 照射角度（度数）
+
+		Math::Vector3		ConeLight_Color = { 1, 1, 1 };	// 光の色
+		float				ConeLight_Range = 10.0f;		// 照射距離
+
+		float				ConeLight_Intensity = 1.0f;		// 強度
+		float				ConeLight_EdgeSmoothness = 0.5f;// 境界のスムーズさ
+		int					ConeLight_IsHit = 0;			// ヒット判定フラグ
+		float				_blank_cone1 = 0.0f;
+
+		Math::Vector3		ConeLight_HitPos = { 0, 0, 0 };	// ヒット座標
+		float				_blank_cone2 = 0.0f;
+
+		Math::Vector3		ConeLight_HitNormal = { 0, 1, 0 };// ヒット法線
+		float				_blank_cone3 = 0.0f;
 
 		//-----------------
 		// 点光
@@ -198,6 +223,21 @@ public:
 	void WriteCBShadowArea(const Math::Matrix& proj, float dirLightHeight);
 	void WriteCBPointLight(const std::list<PointLight>& pointLights);
 
+	// コーンライト定数バッファ書き込み
+	void WriteCBConeLightEnable(bool enable);
+	void WriteCBConeLight2D(
+		const Math::Vector3& pos,
+		const Math::Vector3& dir,
+		float angle,
+		float range,
+		const Math::Vector3& col,
+		float intensity = 1.0f,
+		float edgeSmoothness = 0.5f,
+		bool isHit = false,
+		const Math::Vector3& hitPos = Math::Vector3::Zero,
+		const Math::Vector3& hitNormal = Math::Vector3::Up
+	);
+
 	//==========================
 	//
 	// その他
@@ -236,7 +276,7 @@ private:
 	// パイプラインステート
 	//
 	//==========================
-	 
+
 	//深度ステンシル（奥行情報の使い方・手前にあるものを無視して描画したりできる
 	ID3D11DepthStencilState* m_depthStencilStates[(int)KdDepthStencilState::Max] = {};
 	std::stack<ID3D11DepthStencilState*> m_ds_Undo;

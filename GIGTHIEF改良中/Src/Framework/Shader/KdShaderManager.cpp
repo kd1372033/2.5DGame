@@ -42,36 +42,36 @@ void KdShaderManager::Init()
 	// パイプラインステート関係
 	//============================================
 	//深度ステンシルステート作成（奥行情報の使い方・手前にあるものを無視して描画したりできる
-	m_depthStencilStates[(int)KdDepthStencilState::ZEnable]			= KdDirect3D::Instance().CreateDepthStencilState(true, true);
-	m_depthStencilStates[(int)KdDepthStencilState::ZWriteDisable]	= KdDirect3D::Instance().CreateDepthStencilState(true, false);
-	m_depthStencilStates[(int)KdDepthStencilState::ZDisable]		= KdDirect3D::Instance().CreateDepthStencilState(false, false);
+	m_depthStencilStates[(int)KdDepthStencilState::ZEnable] = KdDirect3D::Instance().CreateDepthStencilState(true, true);
+	m_depthStencilStates[(int)KdDepthStencilState::ZWriteDisable] = KdDirect3D::Instance().CreateDepthStencilState(true, false);
+	m_depthStencilStates[(int)KdDepthStencilState::ZDisable] = KdDirect3D::Instance().CreateDepthStencilState(false, false);
 
 	// 初期深度ステートの設定
 	KdDirect3D::Instance().WorkDevContext()->OMSetDepthStencilState(m_depthStencilStates[(int)KdDepthStencilState::ZEnable], 0);
 
 	// ラスタライザステート作成（ポリゴンの任意の面の描画を省略できる、処理を軽減する目的で運用する事が多い
-	m_rasterizerStates[(int)KdRasterizerState::CullNone]	= KdDirect3D::Instance().CreateRasterizerState(D3D11_CULL_NONE, D3D11_FILL_SOLID, true, false);
-	m_rasterizerStates[(int)KdRasterizerState::CullFront]	= KdDirect3D::Instance().CreateRasterizerState(D3D11_CULL_FRONT, D3D11_FILL_SOLID, true, false);
-	m_rasterizerStates[(int)KdRasterizerState::CullBack]	= KdDirect3D::Instance().CreateRasterizerState(D3D11_CULL_BACK, D3D11_FILL_SOLID, true, false);
+	m_rasterizerStates[(int)KdRasterizerState::CullNone] = KdDirect3D::Instance().CreateRasterizerState(D3D11_CULL_NONE, D3D11_FILL_SOLID, true, false);
+	m_rasterizerStates[(int)KdRasterizerState::CullFront] = KdDirect3D::Instance().CreateRasterizerState(D3D11_CULL_FRONT, D3D11_FILL_SOLID, true, false);
+	m_rasterizerStates[(int)KdRasterizerState::CullBack] = KdDirect3D::Instance().CreateRasterizerState(D3D11_CULL_BACK, D3D11_FILL_SOLID, true, false);
 
 	// 初期ラスタライザステートの設定
 	KdDirect3D::Instance().WorkDevContext()->RSSetState(m_rasterizerStates[(int)KdRasterizerState::CullBack]);
 
 	// ブレンドステート作成（ピクセルの最終色を決めるときに既に塗られている色と、どう合成するのかの選択ができる
-	m_blendStates[(int)KdBlendState::Alpha]	= KdDirect3D::Instance().CreateBlendState(KdBlendMode::Alpha);
-	m_blendStates[(int)KdBlendState::Add]	= KdDirect3D::Instance().CreateBlendState(KdBlendMode::Add);
+	m_blendStates[(int)KdBlendState::Alpha] = KdDirect3D::Instance().CreateBlendState(KdBlendMode::Alpha);
+	m_blendStates[(int)KdBlendState::Add] = KdDirect3D::Instance().CreateBlendState(KdBlendMode::Add);
 
 	// 初期ブレンドステートの設定
 	KdDirect3D::Instance().WorkDevContext()->OMSetBlendState(m_blendStates[(int)KdBlendState::Alpha], Math::Color(0, 0, 0, 0), 0xFFFFFFFF);
 
 	// サンプラーステート作成（テクスチャのピクセル色を取得する際にどのような補間や扱いで取得するかを選択できる
-	m_samplerStates[(int)KdSamplerState::Anisotropic_Wrap]	= KdDirect3D::Instance().CreateSamplerState(KdSamplerFilterMode::Anisotropic, 4, KdSamplerAddressingMode::Wrap, false);
+	m_samplerStates[(int)KdSamplerState::Anisotropic_Wrap] = KdDirect3D::Instance().CreateSamplerState(KdSamplerFilterMode::Anisotropic, 4, KdSamplerAddressingMode::Wrap, false);
 	m_samplerStates[(int)KdSamplerState::Anisotropic_Clamp] = KdDirect3D::Instance().CreateSamplerState(KdSamplerFilterMode::Anisotropic, 4, KdSamplerAddressingMode::Clamp, false);
-	m_samplerStates[(int)KdSamplerState::Linear_Clamp]		= KdDirect3D::Instance().CreateSamplerState(KdSamplerFilterMode::Linear, 0, KdSamplerAddressingMode::Clamp, false);
-	m_samplerStates[(int)KdSamplerState::Linear_Clamp_Cmp]	= KdDirect3D::Instance().CreateSamplerState(KdSamplerFilterMode::Linear, 0, KdSamplerAddressingMode::Clamp, true);
-	m_samplerStates[(int)KdSamplerState::Point_Wrap]		= KdDirect3D::Instance().CreateSamplerState(KdSamplerFilterMode::Point, 0, KdSamplerAddressingMode::Wrap, false);
-	m_samplerStates[(int)KdSamplerState::Point_Clamp]		= KdDirect3D::Instance().CreateSamplerState(KdSamplerFilterMode::Point, 0, KdSamplerAddressingMode::Clamp, false);
-	
+	m_samplerStates[(int)KdSamplerState::Linear_Clamp] = KdDirect3D::Instance().CreateSamplerState(KdSamplerFilterMode::Linear, 0, KdSamplerAddressingMode::Clamp, false);
+	m_samplerStates[(int)KdSamplerState::Linear_Clamp_Cmp] = KdDirect3D::Instance().CreateSamplerState(KdSamplerFilterMode::Linear, 0, KdSamplerAddressingMode::Clamp, true);
+	m_samplerStates[(int)KdSamplerState::Point_Wrap] = KdDirect3D::Instance().CreateSamplerState(KdSamplerFilterMode::Point, 0, KdSamplerAddressingMode::Wrap, false);
+	m_samplerStates[(int)KdSamplerState::Point_Clamp] = KdDirect3D::Instance().CreateSamplerState(KdSamplerFilterMode::Point, 0, KdSamplerAddressingMode::Clamp, false);
+
 	// 初期サンプラーステートの設定
 	if (m_pixelArtStyle)
 	{
@@ -319,7 +319,7 @@ void KdShaderManager::UndoBlendState()
 
 	ID3D11BlendState* pNowBs = nullptr;
 	KdDirect3D::Instance().WorkDevContext()->OMGetBlendState(&pNowBs, nullptr, nullptr);
-	
+
 	if (pNowBs != m_bs_Undo.top())
 	{
 		KdDirect3D::Instance().WorkDevContext()->OMSetBlendState(m_bs_Undo.top(), Math::Color(0, 0, 0, 0), 0xFFFFFFFF);
@@ -456,7 +456,7 @@ void KdShaderManager::WriteCBShadowArea(const Math::Matrix& proj, float dirLight
 {
 	Math::Vector3 lightDir = m_cb9_Light.Get().DirLight_Dir;
 	Math::Vector3 lightPos = m_cb7_Camera.Get().CamPos;
-	Math::Vector3 upVec = (lightDir == Math::Vector3::Up) ? Math::Vector3::Right : Math::Vector3::Up ;
+	Math::Vector3 upVec = (lightDir == Math::Vector3::Up) ? Math::Vector3::Right : Math::Vector3::Up;
 
 	Math::Matrix shadowVP = DirectX::XMMatrixLookAtLH(lightPos - lightDir * dirLightHeight, lightPos, upVec);
 
@@ -484,6 +484,45 @@ void KdShaderManager::WriteCBPointLight(const std::list<PointLight>& pointLights
 
 		++pointIndex;
 	}
+
+	m_cb9_Light.Write();
+}
+
+// コーンライトの有効化設定をGPUに転送
+void KdShaderManager::WriteCBConeLightEnable(bool enable)
+{
+	cbLight& light = m_cb9_Light.Work();
+	light.ConeLight_Enable = enable ? 1 : 0;
+	m_cb9_Light.Write();
+}
+
+// 2.5D コーンライトの全データをGPUに転送
+void KdShaderManager::WriteCBConeLight2D(
+	const Math::Vector3& pos,
+	const Math::Vector3& dir,
+	float angle,
+	float range,
+	const Math::Vector3& col,
+	float intensity,
+	float edgeSmoothness,
+	bool isHit,
+	const Math::Vector3& hitPos,
+	const Math::Vector3& hitNormal)
+{
+	cbLight& light = m_cb9_Light.Work();
+
+	light.ConeLight_Pos = pos;
+	light.ConeLight_Dir = dir;
+	light.ConeLight_Angle = angle;
+	light.ConeLight_Range = range;
+	light.ConeLight_Color = col;
+	light.ConeLight_Intensity = intensity;
+	light.ConeLight_EdgeSmoothness = edgeSmoothness;
+
+	// 遮蔽・ヒット判定データのセット
+	light.ConeLight_IsHit = isHit ? 1 : 0;
+	light.ConeLight_HitPos = hitPos;
+	light.ConeLight_HitNormal = hitNormal;
 
 	m_cb9_Light.Write();
 }
