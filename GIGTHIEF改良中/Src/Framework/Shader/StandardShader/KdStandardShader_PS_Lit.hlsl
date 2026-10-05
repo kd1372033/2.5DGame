@@ -221,52 +221,93 @@ float4 main(VSOutput In) : SV_Target0
 	//-------------------------
 	if (g_ConeLightEnable)
 	{
-		float3 lightVec = In.wPos - g_ConeLightPos;
-		float dist = length(lightVec);
+		// --------------------------------------------------
+		// 1. 床面への照射（扇形・三角形）
+		// --------------------------------------------------
+		float3 lightVecXZ = In.wPos - g_ConeLightPos;
+		lightVecXZ.y = 0.06f; // キャラ被り防止の設定を保持
+		float distXZ = length(lightVecXZ);
 
-		if (dist < g_ConeLightRange && dist > 0.001)
+		if (distXZ < g_ConeLightRange && distXZ > 0.8f)
 		{
-			float3 lightDir = lightVec / dist;
-			float cosAngle = dot(lightDir, normalize(g_ConeLightDir));
-			float coneCosAngle = cos(radians(g_ConeLightAngle));
+			float3 lightDirXZ = lightVecXZ / distXZ;
 
-			if (cosAngle > coneCosAngle)
+			float3 coneDirXZ = g_ConeLightDir;
+			coneDirXZ.y = 0.0f;
+			coneDirXZ = normalize(coneDirXZ);
+
+			float cosAngle = dot(lightDirXZ, coneDirXZ);
+			float halfAngle = g_ConeLightAngle * 0.5f;
+			float coneCos = cos(radians(halfAngle));
+
+			if (cosAngle > coneCos)
 			{
-				// 距離と角度による減衰計算
-				float distAtten = 1.0 - saturate(dist / g_ConeLightRange);
-				distAtten = pow(distAtten, 2.0);
+				// 床面（wN.y >= 0.7f）のみ描画
+				if (wN.y >= 0.7f)
+				{
+					float currentAngle = acos(saturate(cosAngle));
+					float edgeFactor = 1.0f - smoothstep(radians(halfAngle) * 0.90f, radians(halfAngle), currentAngle);
 
-				float angleAtten = saturate((cosAngle - coneCosAngle) / (1.0 - coneCosAngle));
-				angleAtten = smoothstep(0.0, g_ConeLightEdgeSmoothness, angleAtten);
+					float distFade = saturate(1.0f - (distXZ / g_ConeLightRange) * 0.1f);
+					float atte = distFade * edgeFactor;
 
-				float atten = distAtten * angleAtten * g_ConeLightIntensity;
+					float maxIntensity = max(g_ConeLightColor.r, max(g_ConeLightColor.g, g_ConeLightColor.b));
+					float3 normColor = (maxIntensity > 0.0f) ? (g_ConeLightColor / maxIntensity) : 0;
+					float3 searchLightColor = normColor * 3.0f;
 
-				// 拡散光 (Diffuse)
-				float lightDiffuse = saturate(dot(-lightDir, wN)) / 3.1415926535;
-				outColor += (g_ConeLightColor * lightDiffuse * atten) * baseDiffuse * baseColor.a;
-
-				// 反射光 (Specular)
-				float spec = BlinnPhong(lightDir, vCam, wN, specPower) * atten;
-				outColor += (g_ConeLightColor * spec) * baseSpecular * baseColor.a * 0.5;
-
-				// 明度の補正加算
-				totalBrightness += atten * 0.5;
+					outColor += searchLightColor * atte * baseDiffuse * baseColor.a;
+				}
 			}
 		}
 
-		// ヒット演出・視認線描画（壁や遮蔽物に当たった際のHit位置への演出効果）
-		if (g_ConeLightIsHit)
+		// --------------------------------------------------
+		// 2. 壁面へのヒット演出（3D空間ベースの半円切り出し）
+		// ★ g_ConeLightIsHit == true（壁命中時）のみ描画
+		// --------------------------------------------------
+		if (g_ConeLightIsHit && wN.y < 0.7f)
 		{
-			float3 hitVec = In.wPos - g_ConeLightHitPos;
-			float hitDist = length(hitVec);
-			if (hitDist < 1.0)
+			// 3D空間上でのライト位置からの方向と距離
+			float3 lightToPos3D = In.wPos - g_ConeLightPos;
+			float dist3D = length(lightToPos3D);
+
+			if (dist3D < g_ConeLightRange)
 			{
-				float hitAtten = (1.0 - saturate(hitDist)) * saturate(dot(wN, g_ConeLightHitNormal));
-				outColor += g_ConeLightColor * hitAtten * 0.8;
+				float3 lightDir3D = lightToPos3D / dist3D;
+
+				// 3Dコーン照射角度内の判定
+				float cosAngle3D = dot(lightDir3D, g_ConeLightDir);
+				float halfAngle = g_ConeLightAngle * 0.5f;
+				float coneCos = cos(radians(halfAngle));
+
+				if (cosAngle3D > coneCos)
+				{
+					// 着弾点（g_ConeLightHitPos）からの3D距離を計算
+					float3 hitToPos = In.wPos - g_ConeLightHitPos;
+					float hitDist = length(hitToPos);
+
+					// ライトに向いている壁面（表側）かどうかのチェック
+					float wallNdotL = dot(wN, -lightDir3D);
+
+					// ★ 着弾点からの半径 0.8f（ドーム状＝壁でカットされて綺麗な半円になる）かつ表側の壁のみ描画
+					if (hitDist <= 0.8f && wallNdotL > 0.0f)
+					{
+						float currentAngle = acos(saturate(cosAngle3D));
+						float edgeFactor = 1.0f - smoothstep(radians(halfAngle) * 0.90f, radians(halfAngle), currentAngle);
+						float distFade = saturate(1.0f - (dist3D / g_ConeLightRange) * 0.1f);
+						float atte = distFade * edgeFactor;
+
+						float maxIntensity = max(g_ConeLightColor.r, max(g_ConeLightColor.g, g_ConeLightColor.b));
+						float3 normColor = (maxIntensity > 0.0f) ? (g_ConeLightColor / maxIntensity) : 0;
+						float3 searchLightColor = normColor * 3.0f;
+
+						outColor += searchLightColor * atte * baseDiffuse * baseColor.a;
+					}
+				}
 			}
 		}
 	}
-
+	
+	
 	outColor += g_AmbientLight.rgb * baseColor.rgb * baseColor.a;
 	
 	// 自己発光色の適応
@@ -327,5 +368,19 @@ float4 main(VSOutput In) : SV_Target0
 	//------------------------------------------
 	// 出力
 	//------------------------------------------
-	return float4(outColor, baseColor.a);
+	// 10/5 追加
+	if (ColorEnable)
+	{
+		// 色
+		// float4 (x y z w)
+		// float4 (float3, float);	←これ採用
+		// float4 (float2, float2);
+		// outColor：最終的に塗られる色
+		return float4(outColor + float3(0, 0, 0), baseColor.a - 0.5f);
+	}
+	else
+	{
+		return float4(outColor, baseColor.a);
+	}
+	//	return float4(outColor, baseColor.a);
 }

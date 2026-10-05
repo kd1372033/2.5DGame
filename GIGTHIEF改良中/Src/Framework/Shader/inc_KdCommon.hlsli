@@ -83,4 +83,5 @@ cbuffer cbLight : register(b9)
 		float3 Pos; // 座標
 		int IsBright; // 明度用ライトかどうか
 	} g_PointLights[100];
+
 };

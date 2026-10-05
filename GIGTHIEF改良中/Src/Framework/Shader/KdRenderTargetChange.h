@@ -14,7 +14,10 @@ struct KdRenderTargetPack
 
 	void SetViewPort(D3D11_VIEWPORT* pVP);
 
-	void ClearTexture(const Math::Color& fillColor = kBlueColor);
+	// 10/5 追加
+	void ClearTexture(const Math::Color& fillColor = kBlackColor);
+
+	//void ClearTexture(const Math::Color& fillColor = kBlueColor);
 
 	std::shared_ptr<KdTexture> m_RTTexture = nullptr;
 	std::shared_ptr<KdTexture> m_ZBuffer = nullptr;

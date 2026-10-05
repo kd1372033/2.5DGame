@@ -31,4 +31,13 @@ private:
 	Math::Color m_stage3Color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
 	std::weak_ptr<KdGameObject> m_wpPlayer;
+
+	// 各部屋の壁を半透明（SetColorEnable: true）にするフラグ
+	bool m_isFrontWallColorEnable = false;
+	bool m_isStageWall1ColorEnable = false;
+	bool m_isStageWall2ColorEnable = false;
+	bool m_isStageWall3ColorEnable = false;
+
+	// プレイヤーがいる部屋の床判定（明るさ制御等に利用する場合）
+	int m_currentRoomIndex = 0; // 0: Front, 1: Stage1, 2: Stage2, 3: Stage3
 };

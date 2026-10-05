@@ -76,11 +76,6 @@ private:
 	float m_renderlightdist;
 	Math::Vector3 m_searchlightcolor;
 
-	// 3本のレイそれぞれの判定用
-	float m_rayDistances[3] = { 0.0f, 0.0f, 0.0f };
-	Math::Vector3 m_rayDirs[3];
-	bool m_rayHitFlags[3] = { false, false, false };
-
 	Math::Vector3 m_hitCenterPos = Math::Vector3::Zero;	// 着弾点	
 	Math::Vector3 m_hitNormal = Math::Vector3::Zero;	// 法線
 

@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 class Player;
+class Ground;
 
 // 視界描画用のカスタムポリゴンクラス（Enemy.h 内で定義可能）
 class VisionPolygon : public KdPolygon
@@ -34,7 +35,6 @@ public:
 	void PostUpdate()                 override;
 	void GenerateDepthMapFromLight() override;
 	void DrawLit()                    override;
-	void DrawUnLit()                  override;
 	void DrawBright()                 override;
 
 	Math::Vector3 GetPos() { return m_pos; }
@@ -98,6 +98,7 @@ private:
 	void UpdateViewPolygon();
 	void CheckPlayerSearch();               // プレイヤー索敵
 	void CheckItemSearch();                 // アイテム索敵
+	void CheckAttackWall();                 // サーチライトが壁に当たったかどうかの判定
 
 	// 状態定義
 	enum class State {
@@ -110,6 +111,7 @@ private:
 	std::weak_ptr<KdGameObject> m_target;
 	std::weak_ptr<Player>       m_wpTarget;
 	std::shared_ptr<KdSquarePolygon> m_polygon;
+	std::weak_ptr<Ground> m_wpStage;
 	// 視界メッシュ描画用のポリゴン
 	//std::shared_ptr<KdPolygon> m_viewPolygon = nullptr;
 	std::shared_ptr<VisionPolygon> m_viewPolygon = nullptr;
@@ -161,17 +163,28 @@ private:
 	static bool s_showDebugWire;
 
 	// 視界パラメータ
-	float m_viewAngle = 50.0f;     // 視野角
+	float m_viewAngle = 40.0f;     // 視野角
 	float m_viewDistance = 1.0f;   // 視界の届く最大距離（0.7f から 2.0f〜3.0f に拡張）
 	float m_viewRenderDistance = 1.01f; // サーチライトの見た目の長さ
 
 	float m_itemAttractTimeout = 0.0f; // アイテム追従開始からの経過時間
 
 	// サーチライト（コーンライト）用パラメータ
-	Math::Vector3 m_raypos = Math::Vector3::Zero;            // ライト発射位置
-	Math::Vector3 m_tohitvector = Math::Vector3::Zero;        // ライト照射方向
-	Math::Vector3 m_searchlightcolor = { 3.0f, 3.0f, 10.0f }; // ライト色
-	bool          m_isHitWall = false;                       // 壁衝突フラグ
-	Math::Vector3 m_hitCenterPos = Math::Vector3::Zero;      // 壁着弾座標
-	Math::Vector3 m_hitNormal = Math::Vector3::Zero;         // 着弾面の法線
+	float m_coneAngle = 10.0f; // ライトの開き角度
+	bool m_isHitWall = false; // 壁に当たっているかどうか（Hitフラグ）
+
+	float m_maxLightRange = 20.0f; // ライトの最大距離（キー操作で変化）
+	float m_coneLightRange = 20.0f; // 照射距離（初期値: 20）
+	float m_coneLightAngle = 30.0f; // 照射角度（初期値: 30度）
+
+	Math::Vector3 m_raypos;
+	Math::Vector3 m_tohitvector;
+	float m_dynamicangle;
+	float m_renderlightdist;
+	Math::Vector3 m_searchlightcolor;
+
+	Math::Vector3 m_hitCenterPos = Math::Vector3::Zero;	// 着弾点	
+	Math::Vector3 m_hitNormal = Math::Vector3::Zero;	// 法線
+
+	float m_hitDistance = 0.0f;	// 当たった距離
 };
