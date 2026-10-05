@@ -19,6 +19,11 @@ private:
 	std::shared_ptr<KdModelData> m_stage2;
 	std::shared_ptr<KdModelData> m_stage3;
 
+	std::shared_ptr<KdModelData> m_frontwall;
+	std::shared_ptr<KdModelData> m_stagewall1;
+	std::shared_ptr<KdModelData> m_stagewall2;
+	std::shared_ptr<KdModelData> m_stagewall3;
+
 	// 各モデル用のカラー（RGBA）。初期値はすべて白色・不透明(1, 1, 1, 1)
 	Math::Color m_frontColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 	Math::Color m_stage1Color = { 1.0f, 1.0f, 1.0f, 1.0f };

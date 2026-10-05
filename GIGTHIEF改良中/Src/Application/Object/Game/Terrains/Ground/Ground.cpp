@@ -35,6 +35,32 @@ void Ground::Init()
 	{
 		m_pCollider->RegisterCollisionShape("Stage3", m_stage3, KdCollider::TypeGround | KdCollider::TypeBump);
 	}
+
+
+
+	m_frontwall = std::make_shared<KdModelData>();
+	if (m_frontwall->Load("Asset/Models/Stage/Frontwall.gltf"))
+	{
+		m_pCollider->RegisterCollisionShape("Frontwall", m_frontwall, KdCollider::TypeGround | KdCollider::TypeBump);
+	}
+
+	m_stagewall1 = std::make_shared<KdModelData>();
+	if (m_stagewall1->Load("Asset/Models/Stage/Stagewall1.gltf"))
+	{
+		m_pCollider->RegisterCollisionShape("Stagewall1", m_stagewall1, KdCollider::TypeGround | KdCollider::TypeBump);
+	}
+
+	m_stagewall2 = std::make_shared<KdModelData>();
+	if (m_stagewall2->Load("Asset/Models/Stage/Stagewall2.gltf"))
+	{
+		m_pCollider->RegisterCollisionShape("Stagewall2", m_stagewall2, KdCollider::TypeGround | KdCollider::TypeBump);
+	}
+
+	m_stagewall3 = std::make_shared<KdModelData>();
+	if (m_stagewall3->Load("Asset/Models/Stage/Stagewall3.gltf"))
+	{
+		m_pCollider->RegisterCollisionShape("Stagewall3", m_stagewall3, KdCollider::TypeGround | KdCollider::TypeBump);
+	}
 }
 
 void Ground::Update()

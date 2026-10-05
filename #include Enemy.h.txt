@@ -1,4 +1,4 @@
-﻿#include "Enemy.h"
+#include "Enemy.h"
 
 #include "../../../../Scene/SceneManager.h"
 #include "../Player/Player.h"
@@ -9,16 +9,21 @@ bool Enemy::s_showDebugWire = false;
 void Enemy::Init()
 {
 	m_pDebugWire = std::make_unique<KdDebugWireFrame>();
+	// 視界ポリゴンの生成
+	m_viewPolygon = std::make_shared<VisionPolygon>();
 
 	m_polygon = std::make_shared<KdSquarePolygon>();
 	m_polygon->SetMaterial("Asset/Textures/Enemy.png");
 	m_polygon->SetSplit(8, 6);
 	m_polygon->SetPivot(KdSquarePolygon::PivotType::Center_Bottom);
 
-	// コーンライトの有効化
-	KdShaderManager::Instance().WriteCBConeLightEnable(true);
-	// ★ 視界ポリゴンの生成
-	m_viewPolygon = std::make_shared<VisionPolygon>();
+	// 8/25 追加
+	// サーチライト用デカールポリゴンの生成
+	m_decalPolygon = std::make_shared<KdSquarePolygon>();
+	m_decalPolygon->SetMaterial("Asset/Textures/Decal.png");
+	// 画像の下端中央を基点にする（ライトの発射位置に合わせやすくするため）
+	m_decalPolygon->SetPivot(KdSquarePolygon::PivotType::Center_Bottom);
+	// ========================================================================
 
 	m_pos = {};
 	m_dir = { 1.0f, 0.0f, 0.0f }; // 初期状態: 右向き
@@ -90,6 +95,9 @@ void Enemy::Update()
 		}
 	}
 
+	// 視界ポリゴンの形状を最新の向き・角度に合わせて更新
+	UpdateViewPolygon();
+
 	// 重力計算
 	m_pos.y -= m_gravity;
 	m_gravity += 0.005f;
@@ -111,76 +119,8 @@ void Enemy::PostUpdate()
 	// 3. アイテム索敵
 	CheckItemSearch();
 
-	// ★ 4. 視界ポリゴン（扇形）の頂点更新処理を追加
-	UpdateViewPolygon();
-
-	// 4. サーチライト遮蔽計算（レイ判定）
-	Math::Vector3 rayPos = m_pos + Math::Vector3(0.0f, 0.5f, 0.0f); // 腰・胸の高さから発射
-	Math::Vector3 rayDir = m_dir;
-	rayDir.y = 0.0f;
-	if (rayDir.LengthSquared() > 0.001f)
-	{
-		rayDir.Normalize();
-	}
-	else
-	{
-		rayDir = { 1.0f, 0.0f, 0.0f };
-	}
-
-	float maxRayDist = m_viewRenderDistance;
-
-	m_isHitWall = false;
-	m_hitCenterPos = rayPos + rayDir * maxRayDist;
-	m_hitNormal = -rayDir;
-
-	KdCollider::RayInfo rayInfo(
-		KdCollider::TypeGround | KdCollider::TypeBump,
-		rayPos,
-		rayDir,
-		maxRayDist
-	);
-
-	float minHitDist = maxRayDist;
-
-	for (const auto& obj : SceneManager::Instance().GetObjList())
-	{
-		if (obj.get() == this || std::dynamic_pointer_cast<Player>(obj)) continue;
-
-		std::list<KdCollider::CollisionResult> retRayList;
-		if (obj->Intersects(rayInfo, &retRayList))
-		{
-			for (const auto& ret : retRayList)
-			{
-				// 垂直に近い面（壁）への衝突を検出
-				if (std::abs(ret.m_hitNDir.y) < 0.5f)
-				{
-					if (ret.m_overlapDistance < minHitDist)
-					{
-						minHitDist = ret.m_overlapDistance;
-						m_isHitWall = true;
-						m_hitCenterPos = ret.m_hitPos;
-						m_hitNormal = ret.m_hitNDir;
-					}
-				}
-			}
-		}
-	}
-
-	m_hitNormal.Normalize();
-
-	// 保持パラメータの更新
-	m_raypos = rayPos;
-	m_tohitvector = rayDir;
-
-	// 追跡中と通常時でライトの色を変更
-	if (m_chaseFlg)
-	{
-		m_searchlightcolor = { 10.0f, 0.0f, 0.0f }; // 発見時: 赤色
-	}
-	else
-	{
-		m_searchlightcolor = { 3.0f, 3.0f, 10.0f }; // 通常時: 青白色
-	}
+	// 視界ポリゴンの形状を最新の向き・角度に合わせて更新
+	//UpdateViewPolygon();
 }
 
 // =============================================================
@@ -189,6 +129,7 @@ void Enemy::PostUpdate()
 
 void Enemy::UpdatePatrol(bool& isMoving)
 {
+	// 例: パトロール中の向きを確実に m_dir にセットする
 	if (m_isHorizontalPatrol)
 	{
 		if (m_dirID == 1)
@@ -216,7 +157,7 @@ void Enemy::UpdatePatrol(bool& isMoving)
 	{
 	case State::Walk:
 		isMoving = true;
-		m_pos.x += m_speed * m_dir.x;
+		m_pos.x += m_speed * m_dir.x; // ★X軸方向のみ移動（左右巡回）
 
 		if (m_timer >= 120.0f) // 約2秒移動
 		{
@@ -230,7 +171,7 @@ void Enemy::UpdatePatrol(bool& isMoving)
 
 		if (m_timer >= 60.0f) // 約1秒停止
 		{
-			m_dir.x *= -1.0f;
+			m_dir.x *= -1.0f; // ★左右反転
 			m_state = State::Walk;
 			m_timer = 0.0f;
 		}
@@ -240,6 +181,7 @@ void Enemy::UpdatePatrol(bool& isMoving)
 
 void Enemy::UpdateItemAttract(bool& isMoving)
 {
+	// safe lock: ローカル変数に保持して一貫性を保つ
 	auto pItem = m_wpItem.lock();
 	if (!pItem)
 	{
@@ -271,7 +213,7 @@ void Enemy::UpdateItemAttract(bool& isMoving)
 
 		if (m_itemWaitTimer <= 0.0f)
 		{
-			pItem->OnHit();
+			pItem->OnHit(); // 安全に呼び出し
 
 			m_itemFlg = false;
 			m_wpItem.reset();
@@ -400,7 +342,6 @@ void Enemy::CheckCollision()
 		m_pos.x += hitDir.x * maxOverlap;
 		m_pos.z += hitDir.z * maxOverlap;
 	}
-
 	if (s_showDebugWire)
 	{
 		m_pDebugWire->AddDebugSphere(m_pos, m_collisionArea, kNormalColor);
@@ -438,7 +379,7 @@ bool Enemy::IsPlayerInFieldOfView(const std::shared_ptr<Player>& player)
 	float angleDeg = DirectX::XMConvertToDegrees(std::acos(dot));
 	if (angleDeg > (m_viewAngle * 0.5f)) return false;
 
-	// 3. 壁遮蔽判定
+	// 3. 壁遮蔽判定（法線ベクトル m_hitNDir で壁だけを判定）
 	Math::Vector3 rayDir = targetPos - eyePos;
 	float rayRange = rayDir.Length();
 	rayDir.Normalize();
@@ -447,6 +388,7 @@ bool Enemy::IsPlayerInFieldOfView(const std::shared_ptr<Player>& player)
 	ray.m_pos = eyePos;
 	ray.m_dir = rayDir;
 	ray.m_range = rayRange;
+	// 地面・障害物フラグを対象にする
 	ray.m_type = KdCollider::TypeGround | KdCollider::TypeBump;
 
 	for (auto& obj : SceneManager::Instance().GetObjList())
@@ -458,7 +400,9 @@ bool Enemy::IsPlayerInFieldOfView(const std::shared_ptr<Player>& player)
 		{
 			for (auto& ret : retRayList)
 			{
-				if (std::abs(ret.m_hitNDir.y) < 0.5f)
+				// ヒットした面の法線 m_hitNDir のY成分をチェック
+				// 垂直な面（壁）に当たった場合のみ「見えない」と判定
+				//if (std::abs(ret.m_hitNDir.y) < 0.5f)
 				{
 					return false; // 壁に遮られている
 				}
@@ -467,77 +411,6 @@ bool Enemy::IsPlayerInFieldOfView(const std::shared_ptr<Player>& player)
 	}
 
 	return true;
-}
-
-void Enemy::UpdateViewPolygon()
-{
-	if (!m_viewPolygon) return;
-
-	std::vector<KdPolygon::Vertex> vertices;
-
-	// 扇形の中心点（敵の位置、床より少しだけ浮かす）
-	Math::Vector3 centerPos = m_pos + Math::Vector3(0.0f, 0.02f, 0.0f);
-
-	// 放射状の分割数
-	const int sliceCount = 20;
-	float halfAngle = DirectX::XMConvertToRadians(m_viewAngle * 0.5f);
-	float startAngle = -halfAngle;
-	float angleStep = (halfAngle * 2.0f) / sliceCount;
-
-	// 基準となる進行方向（m_dir）
-	Math::Vector3 forward = m_dir;
-	forward.y = 0.0f;
-	if (forward.LengthSquared() > 0.001f) forward.Normalize();
-	else forward = { 1.0f, 0.0f, 0.0f };
-
-	// 頂点構築（扇形ポリゴン）
-	for (int i = 0; i < sliceCount; ++i)
-	{
-		float a1 = startAngle + angleStep * i;
-		float a2 = startAngle + angleStep * (i + 1);
-
-		Math::Matrix rot1 = Math::Matrix::CreateRotationY(a1);
-		Math::Matrix rot2 = Math::Matrix::CreateRotationY(a2);
-
-		Math::Vector3 dir1 = Math::Vector3::TransformNormal(forward, rot1);
-		Math::Vector3 dir2 = Math::Vector3::TransformNormal(forward, rot2);
-
-		// 壁遮蔽（レイ判定で長さを縮める）
-		float dist1 = m_viewDistance;
-		float dist2 = m_viewDistance;
-
-		KdCollider::RayInfo ray1(KdCollider::TypeGround | KdCollider::TypeBump, centerPos, dir1, m_viewDistance);
-		KdCollider::RayInfo ray2(KdCollider::TypeGround | KdCollider::TypeBump, centerPos, dir2, m_viewDistance);
-
-		for (const auto& obj : SceneManager::Instance().GetObjList())
-		{
-			if (obj.get() == this || std::dynamic_pointer_cast<Player>(obj)) continue;
-
-			std::list<KdCollider::CollisionResult> retList1, retList2;
-			if (obj->Intersects(ray1, &retList1))
-			{
-				for (const auto& r : retList1) { if (std::abs(r.m_hitNDir.y) < 0.5f) dist1 = std::min(dist1, r.m_overlapDistance); }
-			}
-			if (obj->Intersects(ray2, &retList2))
-			{
-				for (const auto& r : retList2) { if (std::abs(r.m_hitNDir.y) < 0.5f) dist2 = std::min(dist2, r.m_overlapDistance); }
-			}
-		}
-
-		Math::Vector3 p1 = centerPos + dir1 * dist1;
-		Math::Vector3 p2 = centerPos + dir2 * dist2;
-
-		KdPolygon::Vertex vCenter, v1, v2;
-		vCenter.pos = centerPos; vCenter.UV = { 0.5f, 0.5f }; vCenter.color = 0xFFFFFFFF;
-		v1.pos = p1;              v1.UV = { 0.0f, 0.0f };      v1.color = 0xFFFFFFFF;
-		v2.pos = p2;              v2.UV = { 1.0f, 0.0f };      v2.color = 0xFFFFFFFF;
-
-		vertices.push_back(vCenter);
-		vertices.push_back(v1);
-		vertices.push_back(v2);
-	}
-
-	m_viewPolygon->SetVertices(vertices);
 }
 
 void Enemy::CheckPlayerSearch()
@@ -613,6 +486,7 @@ void Enemy::CheckPlayerSearch()
 				{
 					for (auto& ret : retRayList)
 					{
+						// ヒットした面が「壁（垂直面）」であれば遮蔽
 						if (std::abs(ret.m_hitNDir.y) < 0.5f)
 						{
 							isLost = true;
@@ -667,6 +541,272 @@ void Enemy::CheckPlayerSearch()
 	}
 }
 
+// -------------------------------------------------------------
+// 扇形視界ポリゴンの生成・更新処理
+// -------------------------------------------------------------
+
+void Enemy::UpdateViewPolygon() {
+
+	if (!m_viewPolygon) return;
+
+	std::vector<KdPolygon::Vertex> vertices;
+
+	unsigned int centerColor = 0xFFFFFFFF;
+	unsigned int outerColor = 0x00FFFFFF;
+
+	// 1. 向きベクトルの正規化
+	Math::Vector3 dir = m_dir;
+	dir.y = 0.0f;
+	if (dir.LengthSquared() == 0.0f) dir = { 0.0f, 0.0f, 1.0f };
+	dir.Normalize();
+
+	float halfAngle = DirectX::XMConvertToRadians(m_viewAngle * 0.5f);
+	float baseAngle = std::atan2(dir.x, dir.z);
+
+	// 2. 正面レイキャスト（壁判定）
+	Math::Vector3 eyePosW = m_pos + Math::Vector3(0.0f, 0.5f, 0.0f);
+
+	KdCollider::RayInfo frontRay;
+	frontRay.m_pos = eyePosW;
+	frontRay.m_dir = dir;
+	frontRay.m_range = m_viewRenderDistance;
+	frontRay.m_type = KdCollider::TypeGround | KdCollider::TypeBump;
+
+	float minHitDist = m_viewRenderDistance;
+	bool isHitWall = false;
+	Math::Vector3 wallNormal = Math::Vector3::Zero;
+
+	for (const auto& obj : SceneManager::Instance().GetObjList())
+	{
+		if (obj.get() == this || std::dynamic_pointer_cast<Player>(obj)) continue;
+
+		std::list<KdCollider::CollisionResult> retRayList;
+		if (obj->Intersects(frontRay, &retRayList))
+		{
+			for (const auto& ret : retRayList)
+			{
+				if (std::abs(ret.m_hitNDir.y) < 0.3f)
+				{
+					if (ret.m_overlapDistance < minHitDist)
+					{
+						minHitDist = ret.m_overlapDistance;
+						wallNormal = ret.m_hitNDir;
+						isHitWall = true;
+					}
+				}
+			}
+		}
+	}
+
+	// 3. 左右の斜め方向の距離を正しく計算（コサイン補正）
+	float angleLeft = baseAngle - halfAngle;
+	float angleRight = baseAngle + halfAngle;
+
+	Math::Vector3 dirLeft = { std::sin(angleLeft),  0.0f, std::cos(angleLeft) };
+	Math::Vector3 dirRight = { std::sin(angleRight), 0.0f, std::cos(angleRight) };
+
+	// 正面距離(minHitDist)をベースに、左右の斜め辺の到達距離を補正
+	// (斜め方向の直線距離 = 正面距離 / cos(halfAngle))
+	float cosVal = std::cos(halfAngle);
+	float frontFloorDist = isHitWall ? std::max(0.0f, minHitDist - 0.02f) : m_viewRenderDistance;
+
+	// 床を伸びる距離（左右）
+	float sideFloorDist = frontFloorDist / cosVal;
+
+	float polyY = 0.05f;
+
+	// 4. 頂点座標の構築
+	Math::Vector3 v0_pos = m_pos + Math::Vector3(0.0f, polyY, 0.0f);
+
+	Math::Vector3 v1_floor = m_pos + dirLeft * sideFloorDist + Math::Vector3(0.0f, polyY, 0.0f);
+	Math::Vector3 v2_floor = m_pos + dirRight * sideFloorDist + Math::Vector3(0.0f, polyY, 0.0f);
+
+	KdPolygon::Vertex v0, v1_f, v2_f;
+
+	v0.pos = v0_pos;
+	v0.color = centerColor;
+	v0.UV = { 0.5f, 0.5f };
+	v0.normal = { 0.0f, 1.0f, 0.0f };
+
+	v1_f.pos = v1_floor;
+	v1_f.color = isHitWall ? centerColor : outerColor;
+	v1_f.UV = { 0.0f, 0.0f };
+	v1_f.normal = { 0.0f, 1.0f, 0.0f };
+
+	v2_f.pos = v2_floor;
+	v2_f.color = isHitWall ? centerColor : outerColor;
+	v2_f.UV = { 1.0f, 0.0f };
+	v2_f.normal = { 0.0f, 1.0f, 0.0f };
+
+	// 床面
+	vertices.push_back(v0);
+	vertices.push_back(v1_f);
+	vertices.push_back(v2_f);
+
+	// 5. 壁面の立ち上げ（壁衝突時のみ）
+	if (isHitWall)
+	{
+		// 余り距離（立ち上げる高さ）＝ 設定最大距離 - 壁までの正面距離
+		float excess = m_viewRenderDistance - frontFloorDist;
+
+		Math::Vector3 v1_wall = v1_floor + (wallNormal * 0.02f) + Math::Vector3(0.0f, excess, 0.0f);
+		Math::Vector3 v2_wall = v2_floor + (wallNormal * 0.02f) + Math::Vector3(0.0f, excess, 0.0f);
+
+		KdPolygon::Vertex v1_w, v2_w;
+
+		v1_w.pos = v1_wall;
+		v1_w.color = outerColor;
+		v1_w.UV = { 0.0f, 0.0f };
+		v1_w.normal = wallNormal;
+
+		v2_w.pos = v2_wall;
+		v2_w.color = outerColor;
+		v2_w.UV = { 1.0f, 0.0f };
+		v2_w.normal = wallNormal;
+
+		vertices.push_back(v1_f);
+		vertices.push_back(v1_w);
+		vertices.push_back(v2_w);
+
+		vertices.push_back(v1_f);
+		vertices.push_back(v2_w);
+		vertices.push_back(v2_f);
+	}
+
+	m_viewPolygon->SetVertices(vertices);
+}
+
+// 8/25前
+//void Enemy::UpdateViewPolygon() {
+//
+//	if (!m_viewPolygon) return;
+//
+//	std::vector<KdPolygon::Vertex> vertices;
+//	const int slice = 5;
+//	float halfAngle = DirectX::XMConvertToRadians(m_viewAngle * 0.5f);
+//
+//	unsigned int centerColor = 0xFFFFFFFF;
+//	unsigned int outerColor = 0x00FFFFFF;
+//
+//	float baseAngle = std::atan2(m_dir.x, m_dir.z);
+//
+//	// 1. レイの発射位置
+//
+//	// 腰〜胸の高さ（0.5f）から飛ばすことで床ポリゴンとの誤判定を防止
+//
+//	Math::Vector3 eyePosW = m_pos;
+//	eyePosW.y += 0.5f;
+//
+//	std::vector<float> rayDistances(slice + 1, m_viewRenderDistance);
+//
+//	// 2. レイキャストで壁までの距離を計測
+//
+//	for (int i = 0; i <= slice; ++i) {
+//		float t = static_cast<float>(i) / slice;
+//		float angle = baseAngle - halfAngle + (halfAngle * 2.0f) * t;
+//
+//		Math::Vector3 rayDirW = { std::sin(angle), 0.0f, std::cos(angle) };
+//		KdCollider::RayInfo ray;
+//
+//		ray.m_pos = eyePosW;
+//		ray.m_dir = rayDirW;
+//		ray.m_range = m_viewRenderDistance;
+//
+//		// TypeGround と TypeBump の両方を検出
+//		ray.m_type = KdCollider::TypeGround | KdCollider::TypeBump;
+//
+//		float minHitDist = m_viewRenderDistance;
+//		bool hit = false;
+//
+//		for (const auto& obj : SceneManager::Instance().GetObjList())
+//		{
+//			if (obj.get() == this) continue;
+//			if (std::dynamic_pointer_cast<Player>(obj)) continue;
+//
+//			std::list<KdCollider::CollisionResult> retRayList;
+//			if (obj->Intersects(ray, &retRayList))
+//			{
+//				for (const auto& ret : retRayList)
+//				{
+//					// ★一体型モデル用の法線判定：
+//
+//					// 法線のY成分の絶対値が 0.5 未満 ＝ 垂直に近い面（壁）
+//
+//					// ※もしこれでも突き抜ける場合は std::abs(ret.m_hitNDir.y) < 0.8f に緩めてみてください
+//
+//					if (std::abs(ret.m_hitNDir.y) < 0.5f)
+//					{
+//						if (ret.m_overlapDistance < minHitDist)
+//						{
+//							minHitDist = ret.m_overlapDistance;
+//							hit = true;
+//						}
+//					}
+//				}
+//			}
+//		}
+//		// 壁にヒットした場合は、壁の厚み＋めり込み防止として 0.2f 手前でカットする
+//
+//		if (hit)
+//		{
+//			rayDistances[i] = std::max(0.0f, minHitDist - 0.2f);
+//		}
+//		else
+//		{
+//			rayDistances[i] = m_viewRenderDistance;
+//		}
+//	}
+//
+//	// 3. ポリゴンの構築
+//	// 床よりわずかに浮かす（Zファイティング防止）
+//	float polyY = 0.05f;
+//	for (int i = 0; i < slice; ++i)
+//	{
+//
+//		float t1 = static_cast<float>(i) / slice;
+//		float t2 = static_cast<float>(i + 1) / slice;
+//
+//		float angle1 = baseAngle - halfAngle + (halfAngle * 2.0f) * t1;
+//		float angle2 = baseAngle - halfAngle + (halfAngle * 2.0f) * t2;
+//
+//		float dist1 = rayDistances[i];
+//		float dist2 = rayDistances[i + 1];
+//
+//		Math::Vector3 v0W = eyePosW;
+//		Math::Vector3 v1W = eyePosW + Math::Vector3(std::sin(angle1), 0.0f, std::cos(angle1)) * dist1;
+//		Math::Vector3 v2W = eyePosW + Math::Vector3(std::sin(angle2), 0.0f, std::cos(angle2)) * dist2;
+//
+//		KdPolygon::Vertex v0;
+//
+//		v0.pos = v0W - m_pos;
+//		v0.pos.y = polyY;
+//		v0.color = centerColor;
+//		v0.UV = { 0.5f, 0.5f };
+//		v0.normal = { 0.0f, 1.0f, 0.0f };
+//
+//		KdPolygon::Vertex v1;
+//		v1.pos = v1W - m_pos;
+//		v1.pos.y = polyY;
+//		v1.color = outerColor;
+//		v1.UV = { 0.0f, 0.0f };
+//		v1.normal = { 0.0f, 1.0f, 0.0f };
+//
+//		KdPolygon::Vertex v2;
+//		v2.pos = v2W - m_pos;
+//		v2.pos.y = polyY;
+//		v2.color = outerColor;
+//		v2.UV = { 1.0f, 0.0f };
+//		v2.normal = { 0.0f, 1.0f, 0.0f };
+//
+//		vertices.push_back(v0);
+//		vertices.push_back(v1);
+//		vertices.push_back(v2);
+//
+//	}
+//
+//	m_viewPolygon->SetVertices(vertices);
+//}
+
 void Enemy::CheckItemSearch()
 {
 	if (s_showDebugWire)
@@ -680,14 +820,24 @@ void Enemy::CheckItemSearch()
 	{
 		if (auto itemObj = std::dynamic_pointer_cast<Item>(obj))
 		{
-			if (itemObj->IsHeld()) continue;
-			if (!itemObj->HasBeenThrown()) continue;
+			// 1. 手に持たれている場合は無視
+			if (itemObj->IsHeld())
+			{
+				continue;
+			}
 
+			// 2. まだ一度も投げられていないアイテム（机から落ちただけなど）は無視
+			if (!itemObj->HasBeenThrown())
+			{
+				continue;
+			}
+
+			// ★ 修正：Y軸（高さ）の差を無視して、XZ平面上の距離で索敵する
 			Math::Vector3 itemPos = itemObj->GetPos();
 			Math::Vector3 vDist = itemPos - m_pos;
-			vDist.y = 0.0f;
+			vDist.y = 0.0f; // 高さをゼロにする
 
-			float distXZ = vDist.Length();
+			float distXZ = vDist.Length(); // 平面上の距離
 
 			if (distXZ <= m_itemSearchArea)
 			{
@@ -702,7 +852,7 @@ void Enemy::CheckItemSearch()
 		if (!m_itemFlg)
 		{
 			m_itemFlg = true;
-			m_chaseFlg = false;
+			m_chaseFlg = false; // アイテム優先
 			m_wpItem = pFoundItem;
 			m_itemWaitTimer = 0.0f;
 		}
@@ -728,27 +878,27 @@ void Enemy::GenerateDepthMapFromLight()
 
 void Enemy::DrawLit()
 {
-	// シェーダーの定数バッファにサーチライトデータを送る
-	KdShaderManager::Instance().WriteCBConeLight2D(
-		m_raypos,
-		m_tohitvector,
-		DirectX::XMConvertToRadians(m_viewAngle),
-		m_viewRenderDistance,
-		m_searchlightcolor,
-		1.5f,   // 輝度 (intensity)
-		0.15f,  // ぼかし領域 (edgeSmoothness)
-		m_isHitWall,
-		m_hitCenterPos,
-		m_hitNormal
-	);
-
-	// エネミー本体の描画
 	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_polygon, m_mWorld);
+
+
 }
 
+// -------------------------------------------------------------
+// 半透明パスでの視界描画
+// -------------------------------------------------------------
 void Enemy::DrawUnLit()
 {
 
+	//if (!m_viewPolygon || m_viewPolygon->GetVertices().empty()) return;
+
+	//KdShaderManager::Instance().ChangeBlendState(KdBlendState::Alpha);
+	//KdShaderManager::Instance().ChangeDepthStencilState(KdDepthStencilState::ZWriteDisable);
+
+	//// ★ m_mWorld ではなく Math::Matrix::Identity を使用
+	//KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_viewPolygon, Math::Matrix::Identity);
+
+	//KdShaderManager::Instance().UndoDepthStencilState();
+	//KdShaderManager::Instance().UndoBlendState();
 }
 
 void Enemy::DrawBright()
@@ -758,18 +908,42 @@ void Enemy::DrawBright()
 	KdShaderManager::Instance().ChangeBlendState(KdBlendState::Alpha);
 	KdShaderManager::Instance().ChangeDepthStencilState(KdDepthStencilState::ZWriteDisable);
 
-	// 通常時は黄色半透明、追跡時は赤色半透明
-	if (m_chaseFlg)
-	{
-		m_viewPolygon->SetColor(Math::Color(1.0f, 0.0f, 0.0f, 0.4f));
-	}
-	else
-	{
-		m_viewPolygon->SetColor(Math::Color(1.0f, 1.0f, 0.2f, 0.3f));
-	}
+	m_viewPolygon->SetColor(Math::Color(1.0f, 0.0f, 0.0f, 0.6f));
 
+	// ★ 単位行列（Identity）を指定して、計算したワールド座標をそのまま描画する
 	KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_viewPolygon, Math::Matrix::Identity);
 
 	KdShaderManager::Instance().UndoDepthStencilState();
 	KdShaderManager::Instance().UndoBlendState();
+
+
+	// 8/25前
+	//if (!m_viewPolygon || m_viewPolygon->GetVertices().empty()) return;
+
+	//// ★修正ポイント3：デプステストを「有効」、Z書き込みを「無効」にする
+	//// これにより「壁より奥にあるライト」を描画しないようにする
+	//// （通常、半透明はZWriteDisableにするが、これはOK。問題はDepthEnableになっているか）
+	//// KdDirect3D::Instance().GetDevContext()->OMSetDepthStencilState(...) を直接呼ぶか、
+	//// ShaderManagerにそのようなStateがあればそれを使う。
+	//// ここでは、一般的な半透明設定（ZWriteのみDisable、テストはEnable）を指定するStateがあると仮定、
+	//// または Undo で戻せるように明示的に設定する。
+
+	//// 一般的な3Dエンジンにおける半透明描画の正しいステート：
+	//// RasterizerState: CullBack (背面カリング)
+	//// BlendState: AlphaBlend
+	//// DepthStencilState: DepthEnable=TRUE, DepthWriteMask=ZERO (Z書き込みOFF、テストON)
+	//KdShaderManager::Instance().ChangeBlendState(KdBlendState::Alpha);
+	//KdShaderManager::Instance().ChangeDepthStencilState(KdDepthStencilState::ZWriteDisable);
+
+	//m_viewPolygon->SetColor(Math::Color(1.0f, 0.0f, 0.0f, 0.6f));
+
+	//// ★ 0.5f のスケールをかけて位置を移動させる行列を作成
+	//Math::Matrix scaleMat = Math::Matrix::CreateScale(0.5f);
+	//Math::Matrix transMat = Math::Matrix::CreateTranslation(m_pos);
+	//Math::Matrix polyWorld = scaleMat * transMat;
+
+	//KdShaderManager::Instance().m_StandardShader.DrawPolygon(*m_viewPolygon, polyWorld);
+
+	//KdShaderManager::Instance().UndoDepthStencilState();
+	//KdShaderManager::Instance().UndoBlendState();
 }

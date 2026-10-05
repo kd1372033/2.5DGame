@@ -34,7 +34,7 @@ public:
 	void PostUpdate()                 override;
 	void GenerateDepthMapFromLight() override;
 	void DrawLit()                    override;
-	void DrawUnLit()                    override;
+	void DrawUnLit()                  override;
 	void DrawBright()                 override;
 
 	Math::Vector3 GetPos() { return m_pos; }
@@ -166,4 +166,12 @@ private:
 	float m_viewRenderDistance = 1.01f; // サーチライトの見た目の長さ
 
 	float m_itemAttractTimeout = 0.0f; // アイテム追従開始からの経過時間
+
+	// サーチライト（コーンライト）用パラメータ
+	Math::Vector3 m_raypos = Math::Vector3::Zero;            // ライト発射位置
+	Math::Vector3 m_tohitvector = Math::Vector3::Zero;        // ライト照射方向
+	Math::Vector3 m_searchlightcolor = { 3.0f, 3.0f, 10.0f }; // ライト色
+	bool          m_isHitWall = false;                       // 壁衝突フラグ
+	Math::Vector3 m_hitCenterPos = Math::Vector3::Zero;      // 壁着弾座標
+	Math::Vector3 m_hitNormal = Math::Vector3::Zero;         // 着弾面の法線
 };
