@@ -8,7 +8,7 @@
 #include "../../Object/Game/Obj/GameUI/GameUI.h"
 #include "../../Object/Game/Item/Item/Item.h"
 #include "../../Object/Game/Obj/Desk/Desk.h"
-//#include "../../Object/Game"
+#include "../../Object/Game/Obj/GameObj/GameObj.h"
 //#include "../../Object/Game"
 
 
@@ -146,6 +146,9 @@ void GameScene::Init()
 	std::shared_ptr<Ground> ground = std::make_shared<Ground>();
 	m_objList.push_back(ground);
 	ground->SetPlayer(m_player);
+
+	std::shared_ptr<Furniture> furniture = std::make_shared<Furniture>();
+	m_objList.push_back(furniture);
 
 	// =============================================================
 	// ★ 全9部屋に1つずつ Desk（引き出し）を配置
