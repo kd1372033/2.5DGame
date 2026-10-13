@@ -1,4 +1,14 @@
 ﻿#include "KdAmbientController.h"
+#include "KdShaderManager.h"
+
+KdAmbientController::KdAmbientController()
+{
+	m_spConeLight = std::make_unique<ConeLight>();
+}
+
+KdAmbientController::~KdAmbientController()
+{
+}
 
 // ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
 // シェーダーマネージャで設定したシェーダーの初期値を取得してくる
@@ -34,16 +44,14 @@ void KdAmbientController::Init()
 	SetDirLightShadowArea({ 25.0f, 25.0f }, 30.0f);
 
 	// 光のパラメータの反映
-	// ----- ----- ----- ----- ----- ----- ----- ----- ----- -----
 	WriteLightParams();
 
 	// フォグのパラメータの反映
-	// ----- ----- ----- ----- ----- ----- ----- ----- ----- -----
 	WriteFogParams();
 }
 
 // ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
-// 点光源は毎フレーム登録する形なので0クリアする
+// 点光源・コーンライトは毎フレーム登録する形なので0クリアする
 // ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
 void KdAmbientController::Update()
 {
@@ -56,11 +64,9 @@ void KdAmbientController::Update()
 void KdAmbientController::Draw()
 {
 	// 光のパラメータの反映
-	// ----- ----- ----- ----- ----- ----- ----- ----- ----- -----
 	WriteLightParams();
 
 	// フォグのパラメータの反映
-	// ----- ----- ----- ----- ----- ----- ----- ----- ----- -----
 	WriteFogParams();
 }
 
@@ -78,12 +84,55 @@ void KdAmbientController::AddPointLight(const PointLight& pointLight)
 }
 
 // ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
+// コーンライトの設定
+// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
+void KdAmbientController::SetConeLight(
+	const Math::Vector3& pos,
+	const Math::Vector3& dir,
+	float angle,
+	float range,
+	const Math::Vector3& col,
+	bool isHit,
+	const Math::Vector3& hitPos,
+	const Math::Vector3& hitNormal)
+{
+	if (!m_spConeLight) { m_spConeLight = std::make_unique<ConeLight>(); }
+
+	m_spConeLight->Pos = pos;
+	m_spConeLight->Dir = dir;
+	m_spConeLight->Angle = angle;
+	m_spConeLight->Range = range;
+	m_spConeLight->Color = col;
+	m_spConeLight->Intensity = 1.0f;
+	m_spConeLight->EdgeSmoothness = 0.5f;
+
+	m_spConeLight->IsHit = isHit ? 1 : 0;
+	m_spConeLight->HitPos = hitPos;
+	m_spConeLight->HitNormal = hitNormal;
+}
+
+void KdAmbientController::SetConeLight(const ConeLight& coneLight)
+{
+	if (!m_spConeLight) { m_spConeLight = std::make_unique<ConeLight>(); }
+	*m_spConeLight = coneLight;
+}
+
+void KdAmbientController::AddConeLight(const ConeLight& coneLight)
+{
+	SetConeLight(coneLight);
+}
+
+void KdAmbientController::SetConeLightEnable(bool enable)
+{
+	KdShaderManager::Instance().WriteCBConeLightEnable(enable);
+}
+
+// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
 // 平行光影の生成エリアの設定
 // ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
 void KdAmbientController::SetDirLightShadowArea(const Math::Vector2& lightingArea, float dirLightHeight)
 {
-	m_shadowProj = DirectX::XMMatrixOrthographicLH(lightingArea.x, lightingArea.x, 0, dirLightHeight * 2.0f);
-
+	m_shadowProj = DirectX::XMMatrixOrthographicLH(lightingArea.x, lightingArea.y, 0, dirLightHeight * 2.0f);
 	m_dirLightHeight = dirLightHeight;
 }
 
@@ -102,7 +151,6 @@ void KdAmbientController::SetDirLight(const Math::Vector3& dir, const Math::Vect
 
 // ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
 // 環境光の設定
-// アルファ値の変更でデフォルトの暗さを指定できる。0にした場合は点光源の周囲以外は真っ暗
 // ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
 void KdAmbientController::SetAmbientLight(const Math::Vector4& col)
 {
@@ -125,7 +173,6 @@ void KdAmbientController::SetFogEnable(bool distance, bool height)
 void KdAmbientController::SetDistanceFog(const Math::Vector3& col, float density)
 {
 	m_parameter.m_distanceFogColor = col;
-
 	m_parameter.m_distanceFogDensity = density;
 
 	m_dirtyFogDist = true;
@@ -137,54 +184,15 @@ void KdAmbientController::SetDistanceFog(const Math::Vector3& col, float density
 void KdAmbientController::SetheightFog(const Math::Vector3& col, float topValue, float bottomValue, float distance)
 {
 	m_parameter.m_heightFogColor = col;
-
 	m_parameter.m_heightFogTopValue = topValue;
-
 	m_parameter.m_heightFogBottomValue = bottomValue;
-
 	m_parameter.m_heightFogBeginDistance = distance;
 
 	m_dirtyFogHeight = true;
 }
 
 // ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
-// コーンライトの有効/無効設定
-// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
-void KdAmbientController::SetConeLightEnable(bool enable)
-{
-	m_parameter.m_coneLightEnable = enable;
-
-	m_dirtyConeLight = true;
-}
-
-// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
-// 2026/09/10 追加: コーンライト設定
-// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
-void KdAmbientController::SetConeLight(
-	const Math::Vector3& pos,
-	const Math::Vector3& dir,
-	float angle,
-	float range,
-	const Math::Vector3& col,
-	bool isHit,
-	const Math::Vector3& hitPos,
-	const Math::Vector3& hitNormal)
-{
-	m_parameter.m_coneLightPos = pos;
-	m_parameter.m_coneLightDir = dir;
-	m_parameter.m_coneLightAngle = angle;
-	m_parameter.m_coneLightRange = range;
-	m_parameter.m_coneLightColor = col;
-
-	m_parameter.m_coneLightIsHit = isHit;
-	m_parameter.m_coneLightHitPos = hitPos;
-	m_parameter.m_coneLightHitNormal = hitNormal;
-
-	m_dirtyConeLight = true;
-}
-
-// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
-// 光関連パラメータの書き込み
+// 光関連パラメータの書き込み（毎フレーム描画直前に呼ばれる）
 // ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
 void KdAmbientController::WriteLightParams()
 {
@@ -192,7 +200,6 @@ void KdAmbientController::WriteLightParams()
 	if (m_dirtyLightAmb)
 	{
 		KdShaderManager::Instance().WriteCBAmbientLight(m_parameter.m_ambientLightColor);
-
 		m_dirtyLightAmb = false;
 	}
 
@@ -201,38 +208,16 @@ void KdAmbientController::WriteLightParams()
 	{
 		KdShaderManager::Instance().WriteCBDirectionalLight(
 			m_parameter.m_directionalLightDir, m_parameter.m_directionalLightColor);
-
 		m_dirtyLightDir = false;
 	}
 
-	// 点光源
-	if (m_pointLights.size())
+	// 点光源（毎フレーム必ず転送）
+	KdShaderManager::Instance().WriteCBPointLight(m_pointLights);
+
+	// 単体コーンライトの転送
+	if (m_spConeLight)
 	{
-		KdShaderManager::Instance().WriteCBPointLight(m_pointLights);
-	}
-
-	// コーンライト
-	if (m_dirtyConeLight)
-	{
-		KdShaderManager::Instance().WriteCBConeLightEnable(m_parameter.m_coneLightEnable);
-
-		if (m_parameter.m_coneLightEnable)
-		{
-			KdShaderManager::Instance().WriteCBConeLight2D(
-				m_parameter.m_coneLightPos,
-				m_parameter.m_coneLightDir,
-				m_parameter.m_coneLightAngle,
-				m_parameter.m_coneLightRange,
-				m_parameter.m_coneLightColor,
-				1.0f, // Intensity
-				0.5f, // EdgeSmoothness
-				m_parameter.m_coneLightIsHit,
-				m_parameter.m_coneLightHitPos,
-				m_parameter.m_coneLightHitNormal
-			);
-		}
-
-		m_dirtyConeLight = false;
+		KdShaderManager::Instance().WriteCBConeLight(*m_spConeLight);
 	}
 
 	// 影描画エリアの更新

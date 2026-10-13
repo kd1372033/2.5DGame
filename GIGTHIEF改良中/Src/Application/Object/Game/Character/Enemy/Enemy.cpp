@@ -16,9 +16,6 @@ void Enemy::Init()
 	m_polygon->SetSplit(8, 6);
 	m_polygon->SetPivot(KdSquarePolygon::PivotType::Center_Bottom);
 
-	// コーンライトの有効化
-	KdShaderManager::Instance().WriteCBConeLightEnable(true);
-
 	m_pos = {};
 	m_dir = { 1.0f, 0.0f, 0.0f }; // 初期状態: 右向き
 	m_speed = 0.01f;
@@ -114,38 +111,87 @@ void Enemy::PostUpdate()
 	// 4. サーチライト壁判定（Ray計算）
 	CheckAttackWall();
 
-
-	m_searchlightcolor = { 10.0f, 0.0f, 0.0f }; // 発見時: 赤
-
-
-
-	// 3. 発生源と照射方向の設定
-	Math::Vector3 lightPos = m_pos + Math::Vector3(0.0f, 0.1f, 0.0f);
 	Math::Vector3 lightDir = m_dir;
 	lightDir.y = 0.0f;
-	if (lightDir.LengthSquared() > 0.0001f)
-	{
-		lightDir.Normalize();
-	}
-	else
+	if (lightDir.LengthSquared() < 0.001f)
 	{
 		lightDir = { 1.0f, 0.0f, 0.0f };
 	}
+	else
+	{
+		lightDir.Normalize();
+	}
 
-	// 4. 定数バッファへ書き込み（壁までの距離 m_hitDistance を渡して固定）
-	KdShaderManager::Instance().WriteCBConeLightEnable(true);
-	KdShaderManager::Instance().WriteCBConeLight2D(
-		m_raypos,               // 発振源（敵の中心）
-		m_dir,               // 照射方向
-		m_viewAngle,            // 照射角度
-		m_hitDistance,          // ★ 壁までの地点の距離（貫通防止）
-		m_searchlightcolor,     // カラー
-		1.0f,                   // 輝度
-		0.2f,                   // ぼかし
-		m_isHitWall,            // 壁ヒットフラグ
-		m_hitCenterPos,         // 壁の着弾座標
-		m_hitNormal             // 壁の法線
-	);
+	ConeLight coneLight;
+
+	// ★ 修正: 敵の中心から前方(lightDir)へ 0.35f 離した位置をライトの起点にする
+	// これにより、キャラ自身のポリゴン（顔や服）に光がかからなくなります
+	coneLight.Pos = m_pos + (lightDir * 0.1f);
+
+	coneLight.Dir = lightDir;
+	coneLight.Angle = m_viewAngle;
+
+	// 起点を前方に離した分、壁までの照射距離も調整
+	coneLight.Range = (std::max)(0.1f, m_hitDistance - 0.35f);
+
+	coneLight.Color = { 1.0f, 0.0f, 0.0f };
+	coneLight.Intensity = 1.0f;
+
+	coneLight.IsHit = m_isHitWall ? 1 : 0;
+	coneLight.HitPos = m_hitCenterPos;
+	coneLight.HitNormal = m_hitNormal;
+
+	KdShaderManager::Instance().WorkAmbientController().SetConeLight(coneLight);
+
+
+	//m_searchlightcolor = { 1.0f, 0.0f, 0.0f }; // 発見時: 赤
+
+
+
+	//// 3. 発生源と照射方向の設定
+	//Math::Vector3 lightPos = m_pos + Math::Vector3(0.0f, 0.1f, 0.0f);
+	//Math::Vector3 lightDir = m_dir;
+	//lightDir.y = 0.0f;
+	//if (lightDir.LengthSquared() > 0.0001f)
+	//{
+	//	lightDir.Normalize();
+	//}
+	//else
+	//{
+	//	lightDir = { 1.0f, 0.0f, 0.0f };
+	//}
+
+	//// 4. 定数バッファへ書き込み（壁までの距離 m_hitDistance を渡して固定）
+	//// 【修正後】
+	//ConeLight coneLight;
+	//coneLight.Pos = m_pos;       // 敵のライト位置
+	//coneLight.Dir = m_dir;       // 照射方向
+	//coneLight.Angle = m_viewAngle;     // 照射角度
+	//coneLight.Range = m_hitDistance;     // 照射距離
+	//coneLight.Color = m_searchlightcolor;     // ライトの色
+	//coneLight.Intensity = 1.0f;        // 輝度
+	//coneLight.IsHit = m_isHitWall;     // ヒット判定フラグ
+	//coneLight.HitPos = m_hitCenterPos;    // ヒット座標
+	//coneLight.HitNormal = m_hitNormal; // ヒット法線
+
+	//// アンビエントコントローラーに追加登録する（毎フレーム呼び出す）
+	//KdShaderManager::Instance().WorkAmbientController().AddConeLight(coneLight);
+
+
+
+	//KdShaderManager::Instance().WriteCBConeLightEnable(true);
+	//KdShaderManager::Instance().WriteCBConeLight2D(
+	//	m_raypos,               // 発振源（敵の中心）
+	//	m_dir,               // 照射方向
+	//	m_viewAngle,            // 照射角度
+	//	m_hitDistance,          // ★ 壁までの地点の距離（貫通防止）
+	//	m_searchlightcolor,     // カラー
+	//	1.0f,                   // 輝度
+	//	0.2f,                   // ぼかし
+	//	m_isHitWall,            // 壁ヒットフラグ
+	//	m_hitCenterPos,         // 壁の着弾座標
+	//	m_hitNormal             // 壁の法線
+	//);
 }
 
 // =============================================================
@@ -412,21 +458,20 @@ bool Enemy::IsPlayerInFieldOfView(const std::shared_ptr<Player>& player)
 	ray.m_pos = eyePos;
 	ray.m_dir = rayDir;
 	ray.m_range = rayRange;
-	ray.m_type = KdCollider::TypeGround | KdCollider::TypeBump;
+	// ★ TypeBump（壁）を対象にする
+	ray.m_type = KdCollider::TypeBump;
 
 	for (auto& obj : SceneManager::Instance().GetObjList())
 	{
+		// 自分自身とプレイヤーは除外
 		if (obj.get() == this || obj == player) continue;
 
 		std::list<KdCollider::CollisionResult> retRayList;
 		if (obj->Intersects(ray, &retRayList))
 		{
-			for (auto& ret : retRayList)
+			if (!retRayList.empty())
 			{
-				if (std::abs(ret.m_hitNDir.y) < 0.5f)
-				{
-					return false; // 壁に遮られている
-				}
+				return false; // ★ 間に壁（TypeBump）が1つでもあれば視界NG
 			}
 		}
 	}
@@ -496,7 +541,8 @@ void Enemy::CheckPlayerSearch()
 			ray.m_pos = eyePos;
 			ray.m_dir = rayDir;
 			ray.m_range = rayRange;
-			ray.m_type = KdCollider::TypeGround | KdCollider::TypeBump;
+			// ★ TypeBump（壁）で判定
+			ray.m_type = KdCollider::TypeBump;
 
 			for (auto& obj : SceneManager::Instance().GetObjList())
 			{
@@ -505,16 +551,12 @@ void Enemy::CheckPlayerSearch()
 				std::list<KdCollider::CollisionResult> retRayList;
 				if (obj->Intersects(ray, &retRayList))
 				{
-					for (auto& ret : retRayList)
+					if (!retRayList.empty())
 					{
-						if (std::abs(ret.m_hitNDir.y) < 0.5f)
-						{
-							isLost = true;
-							break;
-						}
+						isLost = true; // 壁の陰に入ったら即見失う
+						break;
 					}
 				}
-				if (isLost) break;
 			}
 		}
 

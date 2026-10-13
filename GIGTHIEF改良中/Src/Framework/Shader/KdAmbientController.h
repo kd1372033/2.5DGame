@@ -1,6 +1,10 @@
 ﻿#pragma once
 
+#include <memory>
+#include <list>
+
 struct PointLight;
+struct ConeLight;
 
 // ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
 // ゲーム内の空間環境をコントロールするパラメータ群
@@ -47,8 +51,8 @@ struct KdAmbientParameter
 class KdAmbientController
 {
 public:
-	KdAmbientController() {}
-	~KdAmbientController() {}
+	KdAmbientController();
+	~KdAmbientController();
 
 	// シェーダーマネージャで設定したシェーダーの初期値を取得してくる
 	void Init();
@@ -59,6 +63,26 @@ public:
 
 	void AddPointLight(const Math::Vector3& Color, float Radius, const Math::Vector3& Pos, bool IsBright = true);
 	void AddPointLight(const PointLight& pointLight);
+
+	// 2026/09/10 追加: コーンライト設定
+	void SetConeLight(
+		const Math::Vector3& pos,
+		const Math::Vector3& dir,
+		float angle,
+		float range,
+		const Math::Vector3& col,
+		bool isHit = false,
+		const Math::Vector3& hitPos = Math::Vector3::Zero,
+		const Math::Vector3& hitNormal = Math::Vector3::Zero
+	);
+
+	// 単体コーンライトの設定
+	void SetConeLight(const ConeLight& coneLight);
+
+	// 互換用: 単一ライトに設定
+	void AddConeLight(const ConeLight& coneLight);
+
+	void SetConeLightEnable(bool enable);
 
 	// 平行光の影生成用の射影行列設定：エリアを指定 x:幅 y:奥行
 	void SetDirLightShadowArea(const Math::Vector2& lightingArea, float dirLightHeight);
@@ -78,20 +102,6 @@ public:
 	// 高さフォグの設定
 	void SetheightFog(const Math::Vector3& col, float topValue, float bottomValue, float distance);
 
-	void SetConeLightEnable(bool enable);
-
-	// 2026/09/10 追加: コーンライト設定
-	void SetConeLight(
-		const Math::Vector3& pos,
-		const Math::Vector3& dir,
-		float angle,
-		float range,
-		const Math::Vector3& col,
-		bool isHit = false,
-		const Math::Vector3& hitPos = Math::Vector3::Zero,
-		const Math::Vector3& hitNormal = Math::Vector3::Zero
-	);
-
 private:
 
 	void WriteLightParams();
@@ -101,6 +111,9 @@ private:
 
 	// 点光源
 	std::list<PointLight> m_pointLights;
+
+	// 単体コーンライト
+	std::unique_ptr<ConeLight> m_spConeLight;
 
 	// 平行光の影生成用の射影行列
 	Math::Matrix m_shadowProj;
@@ -112,5 +125,7 @@ private:
 	bool m_dirtyLightDir = true;
 	bool m_dirtyFogDist = true;
 	bool m_dirtyFogHeight = true;
+
+	// コーンライト
 	bool m_dirtyConeLight = true;
 };

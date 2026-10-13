@@ -489,6 +489,40 @@ void KdShaderManager::WriteCBPointLight(const std::list<PointLight>& pointLights
 }
 
 // コーンライトの有効化設定をGPUに転送
+
+
+/*
+// 2.5D コーンライトの全データをGPUに転送
+void KdShaderManager::WriteCBConeLight2D(
+	const Math::Vector3& pos,
+	const Math::Vector3& dir,
+	float angle,
+	float range,
+	const Math::Vector3& col,
+	float intensity,
+	float edgeSmoothness,
+	bool isHit,
+	const Math::Vector3& hitPos,
+	const Math::Vector3& hitNormal)
+{
+	cbLight& light = m_cb9_Light.Work();
+
+	light.ConeLight_Pos = pos;
+	light.ConeLight_Dir = dir;
+	light.ConeLight_Angle = angle;
+	light.ConeLight_Range = range;
+	light.ConeLight_Color = col;
+	light.ConeLight_Intensity = intensity;
+	light.ConeLight_EdgeSmoothness = edgeSmoothness;
+
+	// 遮蔽・ヒット判定データのセット
+	light.ConeLight_IsHit = isHit ? 1 : 0;
+	light.ConeLight_HitPos = hitPos;
+	light.ConeLight_HitNormal = hitNormal;
+
+	m_cb9_Light.Write();
+}*/
+
 void KdShaderManager::WriteCBConeLightEnable(bool enable)
 {
 	cbLight& light = m_cb9_Light.Work();
@@ -523,6 +557,27 @@ void KdShaderManager::WriteCBConeLight2D(
 	light.ConeLight_IsHit = isHit ? 1 : 0;
 	light.ConeLight_HitPos = hitPos;
 	light.ConeLight_HitNormal = hitNormal;
+
+	m_cb9_Light.Write();
+}
+
+void KdShaderManager::WriteCBConeLight(const ConeLight& coneLight)
+{
+
+	cbLight& light = m_cb9_Light.Work();
+
+	light.ConeLight_Enable = 1;
+	light.ConeLight_Pos = coneLight.Pos;
+	light.ConeLight_Dir = coneLight.Dir;
+	light.ConeLight_Angle = coneLight.Angle;
+	light.ConeLight_Range = coneLight.Range;
+	light.ConeLight_Color = coneLight.Color;
+	light.ConeLight_Intensity = coneLight.Intensity;
+	light.ConeLight_EdgeSmoothness = coneLight.EdgeSmoothness;
+
+	light.ConeLight_IsHit = coneLight.IsHit;
+	light.ConeLight_HitPos = coneLight.HitPos;
+	light.ConeLight_HitNormal = coneLight.HitNormal;
 
 	m_cb9_Light.Write();
 }

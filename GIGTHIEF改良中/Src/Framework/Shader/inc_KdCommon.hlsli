@@ -46,29 +46,6 @@ cbuffer cbLight : register(b9)
 	float3 g_DL_Dir; // 光の方向
 	float3 g_DL_Color; // 光の色
 	row_major float4x4 g_DL_mLightVP; // ビュー行列 x 射影行列
-	
-	//--------------
-	// 2.5D コーンライト
-	//--------------
-	int g_ConeLightEnable; // コーンライト有効/無効フラグ
-	float3 g_ConeLightPos; // ライト座標
-
-	float3 g_ConeLightDir; // ライト照射方向
-	float g_ConeLightAngle; // 照射角度（度数法）
-
-	float3 g_ConeLightColor; // 光の色
-	float g_ConeLightRange; // 照射距離
-
-	float g_ConeLightIntensity; // 強度
-	float g_ConeLightEdgeSmoothness; // 境界のなめらかさ
-	int g_ConeLightIsHit; // 遮蔽・ヒット判定フラグ
-	float dummy_ConeLight; // パッキング用パディング (16bytesアライメント)
-
-	float3 g_ConeLightHitPos; // ヒット座標
-	float dummy_ConeLight2; // パッキング用パディング
-
-	float3 g_ConeLightHitNormal; // ヒット法線
-	float dummy_ConeLight3; // パッキング用パディング
 
 	//--------------
 	// 点光
@@ -84,4 +61,25 @@ cbuffer cbLight : register(b9)
 		int IsBright; // 明度用ライトかどうか
 	} g_PointLights[100];
 
+	// 5. 2.5D コーンライト (16 bytes + 配列)
+	// 2.5D コーンライト (単体)
+	int g_ConeLightEnable;
+	float3 g_ConeLightPos;
+
+	float3 g_ConeLightDir;
+	float g_ConeLightAngle;
+
+	float3 g_ConeLightColor;
+	float g_ConeLightRange;
+
+	float g_ConeLightIntensity;
+	float g_ConeLightEdgeSmoothness;
+	int g_ConeLightIsHit;
+	float dummy_ConeLight;
+
+	float3 g_ConeLightHitPos;
+	float dummy_ConeLight2;
+
+	float3 g_ConeLightHitNormal;
+	float dummy_ConeLight3;
 };

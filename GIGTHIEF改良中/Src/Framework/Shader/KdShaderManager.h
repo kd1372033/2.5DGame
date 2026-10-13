@@ -18,10 +18,31 @@ struct PointLight
 	int		IsBright = 0;	// 明度用ライトかどうか
 };
 
+// コーンライト（単体用データ構造）
+struct ConeLight
+{
+	Math::Vector3 Pos = { 0, 0, 0 };
+	float         Angle = 0.0f;
+
+	Math::Vector3 Dir = { 0, -1, 0 };
+	float         Range = 0.0f;
+
+	Math::Vector3 Color = { 1, 1, 1 };
+	float         Intensity = 0.0f;
+
+	float         EdgeSmoothness = 0.0f;
+	int           IsHit = 0;
+	Math::Vector2 dummy_Cone1;
+
+	Math::Vector3 HitPos = { 0, 0, 0 };
+	float         dummy_Cone2 = 0.0f;
+
+	Math::Vector3 HitNormal = { 0, 0, 0 };
+	float         dummy_Cone3 = 0.0f;
+};
+
 //==========================
-//
 // 各パイプラインステートの呼び出しID
-//
 //==========================
 
 // 深度情報の影響・書き込みの制御ステート
@@ -63,9 +84,7 @@ enum class KdSamplerState
 };
 
 //==========================================================
-//
 // シェーダ関係をまとめたクラス
-//
 //==========================================================
 class KdShaderManager
 {
@@ -97,53 +116,48 @@ public:
 		int				HeightFogEnable = 0;			// 高さフォグ有効
 	};
 
-	// ライト定数バッファ用構造体
+	// ライト定数バッファ用構造体 (16バイトアライメント)
 	struct cbLight
 	{
-		static const int	MaxPointLightNum = 100;
+		static const int MaxPointLightNum = 100;
 
-		// 環境光
-		Math::Vector4		AmbientLight = { 0.3f, 0.3f, 0.3f, 1.0f };
+		// 1. 環境光 (16 bytes)
+		Math::Vector4 AmbientLight = { 0.3f, 0.3f, 0.3f, 1.0f };
 
-		// 平行光
-		Math::Vector3		DirLight_Dir = { 1, -1, 1 };			// 光の方向
-		float				_blank1 = 0.0f;
-		Math::Vector3		DirLight_Color = { 2.25f, 2.25f, 2.25f };	// 光の色
-		float				_blank2 = 0.0f;
+		// 2. 平行光 (32 bytes)
+		Math::Vector3 DirLight_Dir = { 1, -1, 1 };
+		float         _blank1 = 0.0f;
+		Math::Vector3 DirLight_Color = { 2.25f, 2.25f, 2.25f };
+		float         _blank2 = 0.0f;
 
-		Math::Matrix		DirLight_mVP;					// ビュー行列と正射影行列の合成行列
+		// 3. 影用行列 (64 bytes)
+		Math::Matrix  DirLight_mVP;
 
-		//-----------------
-		// 2.5D コーンライト
-		//-----------------
-		int					ConeLight_Enable = 0;			// 有効フラグ
-		Math::Vector3		ConeLight_Pos = { 0, 0, 0 };	// ライト座標
-
-		Math::Vector3		ConeLight_Dir = { 0, -1, 0 };	// ライト照射方向
-		float				ConeLight_Angle = 45.0f;		// 照射角度（度数）
-
-		Math::Vector3		ConeLight_Color = { 1, 1, 1 };	// 光の色
-		float				ConeLight_Range = 10.0f;		// 照射距離
-
-		float				ConeLight_Intensity = 1.0f;		// 強度
-		float				ConeLight_EdgeSmoothness = 0.5f;// 境界のスムーズさ
-		int					ConeLight_IsHit = 0;			// ヒット判定フラグ
-		float				_blank_cone1 = 0.0f;
-
-		Math::Vector3		ConeLight_HitPos = { 0, 0, 0 };	// ヒット座標
-		float				_blank_cone2 = 0.0f;
-
-		Math::Vector3		ConeLight_HitNormal = { 0, 1, 0 };// ヒット法線
-		float				_blank_cone3 = 0.0f;
-
-		//-----------------
-		// 点光
-		//-----------------
-		// 使用数
-		int				PointLight_Num = 0;
-		float			_blank3[3] = { 0.0f, 0.0f ,0.0f };
-
+		// 4. 点光源 (16 bytes + 3200 bytes)
+		int           PointLight_Num = 0;
+		float         _blank3[3] = { 0.0f, 0.0f, 0.0f };
 		std::array<PointLight, MaxPointLightNum> PointLights;
+
+		// 5. 2.5D コーンライト（単体用データ構造）
+		int           ConeLight_Enable = 0;
+		Math::Vector3 ConeLight_Pos = { 0, 0, 0 };
+
+		Math::Vector3 ConeLight_Dir = { 0, -1, 0 };
+		float         ConeLight_Angle = 45.0f;
+
+		Math::Vector3 ConeLight_Color = { 1, 1, 1 };
+		float         ConeLight_Range = 10.0f;
+
+		float         ConeLight_Intensity = 1.0f;
+		float         ConeLight_EdgeSmoothness = 0.5f;
+		int           ConeLight_IsHit = 0;
+		float         _blank_cone1 = 0.0f;
+
+		Math::Vector3 ConeLight_HitPos = { 0, 0, 0 };
+		float         _blank_cone2 = 0.0f;
+
+		Math::Vector3 ConeLight_HitNormal = { 0, 1, 0 };
+		float         _blank_cone3 = 0.0f;
 	};
 
 	static KdShaderManager& Instance()
@@ -156,18 +170,14 @@ public:
 	void Init();
 
 	//==========================
-	//
 	// シェーダ
-	//
 	//==========================
 	KdStandardShader		m_StandardShader;		// 標準描画シェーダ
 	KdPostProcessShader		m_postProcessShader;	// ポストプロセスシェーダ
 	KdSpriteShader			m_spriteShader;			// 2Dテクスチャ描画シェーダ
 
 	//==========================
-	//
 	// 描画パイプライン系の設定
-	//
 	//==========================
 	// パイプラインの設定
 	bool SetVertexShader(ID3D11VertexShader* pSetVS);
@@ -181,9 +191,7 @@ public:
 	bool SetPSConstantBuffer(int startSlot, ID3D11Buffer* const* pSetBuffer);
 
 	//==========================
-	//
 	// パイプラインステートの変更
-	//
 	//==========================
 	// 深度情報をどのように扱うかを変更：変更したかどうかが返ってくる
 	void ChangeDepthStencilState(KdDepthStencilState stateId);
@@ -202,9 +210,7 @@ public:
 	void UndoSamplerState(int slot = 0);
 
 	//==========================
-	//
 	// 定数バッファ系
-	//
 	//==========================
 	const cbCamera& GetCameraCB() const { return m_cb7_Camera.Get(); }
 
@@ -223,7 +229,7 @@ public:
 	void WriteCBShadowArea(const Math::Matrix& proj, float dirLightHeight);
 	void WriteCBPointLight(const std::list<PointLight>& pointLights);
 
-	// コーンライト定数バッファ書き込み
+	// 単体コーンライト用書き込み関数
 	void WriteCBConeLightEnable(bool enable);
 	void WriteCBConeLight2D(
 		const Math::Vector3& pos,
@@ -237,11 +243,10 @@ public:
 		const Math::Vector3& hitPos = Math::Vector3::Zero,
 		const Math::Vector3& hitNormal = Math::Vector3::Up
 	);
+	void WriteCBConeLight(const ConeLight& coneLight);
 
 	//==========================
-	//
 	// その他
-	//
 	//==========================
 
 	bool IsPixelArtStyle() const { return m_pixelArtStyle; }
@@ -272,24 +277,22 @@ private:
 	bool m_pixelArtStyle = true;
 
 	//==========================
-	//
 	// パイプラインステート
-	//
 	//==========================
 
-	//深度ステンシル（奥行情報の使い方・手前にあるものを無視して描画したりできる
+	// 深度ステンシル（奥行情報の使い方・手前にあるものを無視して描画したりできる）
 	ID3D11DepthStencilState* m_depthStencilStates[(int)KdDepthStencilState::Max] = {};
 	std::stack<ID3D11DepthStencilState*> m_ds_Undo;
 
-	// ラスタライズステート（ポリゴンの任意の面の描画を省略できる、処理を軽減する目的で運用する事が多い
+	// ラスタライズステート（ポリゴンの任意の面の描画を省略できる、処理を軽減する目的で運用する事が多い）
 	ID3D11RasterizerState* m_rasterizerStates[(int)KdRasterizerState::Max] = {};
 	std::stack<ID3D11RasterizerState*> m_rs_Undo;
 
-	// ブレンドステート（ピクセルの最終色を決めるときに既に塗られている色と、どう合成するのかの選択ができる
+	// ブレンドステート（ピクセルの最終色を決めるときに既に塗られている色と、どう合成するのかの選択ができる）
 	ID3D11BlendState* m_blendStates[(int)KdBlendState::Max] = {};
 	std::stack<ID3D11BlendState*> m_bs_Undo;
 
-	// サンプラーステート（テクスチャのピクセル色を取得する際にどのような補間や扱いで取得するかを選択できる
+	// サンプラーステート（テクスチャのピクセル色を取得する際にどのような補間や扱いで取得するかを選択できる）
 	ID3D11SamplerState* m_samplerStates[(int)KdSamplerState::Max] = {};
 	std::stack<ID3D11SamplerState*> m_ss_Undo;
 };

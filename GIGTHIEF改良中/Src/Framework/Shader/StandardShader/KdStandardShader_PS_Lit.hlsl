@@ -216,97 +216,111 @@ float4 main(VSOutput In) : SV_Target0
 		}
 	}
 
-	//-------------------------
-	// 2.5D コーンライト (スポットライト)
-	//-------------------------
+	// --------------------------------------------------
+	// 2.5D コーンライト (単体表示状態)
+	// --------------------------------------------------
 	if (g_ConeLightEnable)
 	{
-		// --------------------------------------------------
-		// 1. 床面への照射（扇形・三角形）
-		// --------------------------------------------------
+		float3 coneDirXZ = float3(g_ConeLightDir.x, 0.0f, g_ConeLightDir.z);
+		if (length(coneDirXZ) > 0.001f)
+			coneDirXZ = normalize(coneDirXZ);
+		else
+			coneDirXZ = float3(1.0f, 0.0f, 0.0f);
+
+		// --- 1. 床面への照射 ---
 		float3 lightVecXZ = In.wPos - g_ConeLightPos;
-		lightVecXZ.y = 0.06f; // キャラ被り防止の設定を保持
+		lightVecXZ.y = 0.0f; // XZ平面上の距離計算
 		float distXZ = length(lightVecXZ);
 
-		if (distXZ < g_ConeLightRange && distXZ > 0.8f)
+		if (distXZ <= g_ConeLightRange && distXZ > 0.001f)
 		{
 			float3 lightDirXZ = lightVecXZ / distXZ;
 
-			float3 coneDirXZ = g_ConeLightDir;
-			coneDirXZ.y = 0.0f;
-			coneDirXZ = normalize(coneDirXZ);
-
+			// 照射方向との角度（内積）判定
 			float cosAngle = dot(lightDirXZ, coneDirXZ);
-			float halfAngle = g_ConeLightAngle * 0.5f;
-			float coneCos = cos(radians(halfAngle));
+			
+			float halfAngleRad = radians(g_ConeLightAngle * 0.5f);
+			float coneCos = cos(halfAngleRad);
 
-			if (cosAngle > coneCos)
+			// 扇形の内部 & 上向きポリゴン（床）への描画
+			if (cosAngle >= coneCos && wN.y >= 0.1f)
 			{
-				// 床面（wN.y >= 0.7f）のみ描画
-				if (wN.y >= 0.7f)
+				bool isBeforeWall = true;
+
+				// 壁のレイキャスト遮蔽判定
+				if (g_ConeLightIsHit)
 				{
-					float currentAngle = acos(saturate(cosAngle));
-					float edgeFactor = 1.0f - smoothstep(radians(halfAngle) * 0.90f, radians(halfAngle), currentAngle);
+					float distToPixel = dot(In.wPos - g_ConeLightPos, coneDirXZ);
+					float distToWall = dot(g_ConeLightHitPos - g_ConeLightPos, coneDirXZ);
+					if (distToPixel > distToWall + 0.05f)
+					{
+						isBeforeWall = false;
+					}
+				}
 
-					float distFade = saturate(1.0f - (distXZ / g_ConeLightRange) * 0.1f);
-					float atte = distFade * edgeFactor;
-
+				if (isBeforeWall)
+				{
 					float maxIntensity = max(g_ConeLightColor.r, max(g_ConeLightColor.g, g_ConeLightColor.b));
-					float3 normColor = (maxIntensity > 0.0f) ? (g_ConeLightColor / maxIntensity) : 0;
-					float3 searchLightColor = normColor * 3.0f;
+					float3 normColor = (maxIntensity > 0.0f) ? (g_ConeLightColor / maxIntensity) : float3(0, 0, 0);
 
-					outColor += searchLightColor * atte * baseDiffuse * baseColor.a;
+					outColor += normColor * g_ConeLightIntensity * baseDiffuse * baseColor.a;
 				}
 			}
 		}
 
-		// --------------------------------------------------
-		// 2. 壁面へのヒット演出（3D空間ベースの半円切り出し）
-		// ★ g_ConeLightIsHit == true（壁命中時）のみ描画
-		// --------------------------------------------------
-		if (g_ConeLightIsHit && wN.y < 0.7f)
+		// --- 2. 壁面へのヒット演出（目の前の壁のみ & 地面起点） ---
+		if (g_ConeLightIsHit && wN.y < 0.1f) // 壁面ポリゴン（垂直面）のみ対象
 		{
-			// 3D空間上でのライト位置からの方向と距離
-			float3 lightToPos3D = In.wPos - g_ConeLightPos;
-			float dist3D = length(lightToPos3D);
+			// 光の照射方向と壁の法線が正対している表側のみ判定
+			float wallNdotL = dot(wN, -coneDirXZ);
 
-			if (dist3D < g_ConeLightRange)
+			if (wallNdotL > 0.2f)
 			{
-				float3 lightDir3D = lightToPos3D / dist3D;
+				// ★ 修正点: Rayが実際に着弾した地点（g_ConeLightHitPos）と描画ピクセル（In.wPos）の距離を計算
+				// これにより、Rayが届いていない「奥の壁」への誤描画を完全に遮断します
+				float3 hitToPixel = In.wPos - g_ConeLightHitPos;
+				hitToPixel.y = 0.0f; // XZ平面上での距離チェック
 
-				// 3Dコーン照射角度内の判定
-				float cosAngle3D = dot(lightDir3D, g_ConeLightDir);
-				float halfAngle = g_ConeLightAngle * 0.5f;
-				float coneCos = cos(radians(halfAngle));
+				// 照射角に対応する壁上の最大半径
+				float halfAngleRad = radians(g_ConeLightAngle * 0.5f);
+				float coneRadiusAtEnd = g_ConeLightRange * tan(halfAngleRad);
 
-				if (cosAngle3D > coneCos)
+				// 着弾位置から離れすぎている壁（奥の部屋の壁など）を除外
+				if (length(hitToPixel) <= coneRadiusAtEnd + 0.3f)
 				{
-					// 着弾点（g_ConeLightHitPos）からの3D距離を計算
-					float3 hitToPos = In.wPos - g_ConeLightHitPos;
-					float hitDist = length(hitToPos);
+					// 地面（Y=0）を起点とした着弾位置
+					float3 groundHitPos = float3(g_ConeLightHitPos.x, 0.0f, g_ConeLightHitPos.z);
+					float3 hitToPos = In.wPos - groundHitPos;
 
-					// ライトに向いている壁面（表側）かどうかのチェック
-					float wallNdotL = dot(wN, -lightDir3D);
+					// 壁の法線から壁の横方向（Tangent）を算出
+					float3 N = normalize(g_ConeLightHitNormal);
+					N.y = 0.0f;
+					if (length(N) > 0.001f)
+						N = normalize(N);
+					else
+						N = -coneDirXZ;
 
-					// ★ 着弾点からの半径 0.8f（ドーム状＝壁でカットされて綺麗な半円になる）かつ表側の壁のみ描画
-					if (hitDist <= 0.8f && wallNdotL > 0.0f)
+					float3 Tangent = float3(-N.z, 0.0f, N.x);
+
+					// 壁面上の 2D 座標 (u: 横幅, v: 高さ)
+					float u = dot(hitToPos, Tangent);
+					float v = In.wPos.y; // 地面からの絶対的な高さ
+
+					// 地面の着弾中心点からの半円判定
+					float distFromGroundCenter = sqrt(u * u + v * v);
+
+					if (v >= -0.05f && distFromGroundCenter <= coneRadiusAtEnd)
 					{
-						float currentAngle = acos(saturate(cosAngle3D));
-						float edgeFactor = 1.0f - smoothstep(radians(halfAngle) * 0.90f, radians(halfAngle), currentAngle);
-						float distFade = saturate(1.0f - (dist3D / g_ConeLightRange) * 0.1f);
-						float atte = distFade * edgeFactor;
-
 						float maxIntensity = max(g_ConeLightColor.r, max(g_ConeLightColor.g, g_ConeLightColor.b));
-						float3 normColor = (maxIntensity > 0.0f) ? (g_ConeLightColor / maxIntensity) : 0;
-						float3 searchLightColor = normColor * 3.0f;
+						float3 normColor = (maxIntensity > 0.0f) ? (g_ConeLightColor / maxIntensity) : float3(0, 0, 0);
 
-						outColor += searchLightColor * atte * baseDiffuse * baseColor.a;
+						outColor += normColor * g_ConeLightIntensity * baseDiffuse * baseColor.a;
 					}
 				}
 			}
 		}
 	}
-	
+
 	
 	outColor += g_AmbientLight.rgb * baseColor.rgb * baseColor.a;
 	
