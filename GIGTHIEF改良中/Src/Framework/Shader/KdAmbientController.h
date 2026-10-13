@@ -79,7 +79,7 @@ public:
 	// 単体コーンライトの設定
 	void SetConeLight(const ConeLight& coneLight);
 
-	// 互換用: 単一ライトに設定
+	// 複数ライト追加関数
 	void AddConeLight(const ConeLight& coneLight);
 
 	void SetConeLightEnable(bool enable);
@@ -128,4 +128,6 @@ private:
 
 	// コーンライト
 	bool m_dirtyConeLight = true;
+	// ★ 単一ポインタから配列に変更
+	std::vector<ConeLight> m_coneLights;
 };

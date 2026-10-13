@@ -19,26 +19,33 @@ struct PointLight
 };
 
 // コーンライト（単体用データ構造）
+// HLSL側の定数バッファ構造に合わせて定義
 struct ConeLight
 {
-	Math::Vector3 Pos = { 0, 0, 0 };
-	float         Angle = 0.0f;
+	Math::Vector3 Pos = Math::Vector3::Zero;
+	float Angle = 0.0f;
 
-	Math::Vector3 Dir = { 0, -1, 0 };
-	float         Range = 0.0f;
+	Math::Vector3 Dir = Math::Vector3::Zero;
+	float Range = 0.0f;
 
-	Math::Vector3 Color = { 1, 1, 1 };
-	float         Intensity = 0.0f;
+	Math::Vector3 Color = Math::Vector3::Zero;
+	float Intensity = 1.0f;
 
-	float         EdgeSmoothness = 0.0f;
-	int           IsHit = 0;
-	Math::Vector2 dummy_Cone1;
+	int IsHit = 0;
+	Math::Vector3 HitPos = Math::Vector3::Zero;
 
-	Math::Vector3 HitPos = { 0, 0, 0 };
-	float         dummy_Cone2 = 0.0f;
+	Math::Vector3 HitNormal = Math::Vector3::Zero;
+	float EdgeSmoothness = 0.5f; // ★ ここを追加（16バイトアライメントの末尾要素）
+};
 
-	Math::Vector3 HitNormal = { 0, 0, 0 };
-	float         dummy_Cone3 = 0.0f;
+// ★ 最大数を 20 個に拡張
+static const int kMaxConeLightCount = 20;
+
+struct cbConeLight
+{
+	int count = 0;
+	Math::Vector3 padding;
+	ConeLight list[kMaxConeLightCount];
 };
 
 //==========================
@@ -244,6 +251,7 @@ public:
 		const Math::Vector3& hitNormal = Math::Vector3::Up
 	);
 	void WriteCBConeLight(const ConeLight& coneLight);
+	void WriteCBConeLight(const std::vector<ConeLight>& coneLights);
 
 	//==========================
 	// その他
@@ -273,6 +281,9 @@ private:
 	KdConstantBuffer<cbLight>	m_cb9_Light;
 
 	KdAmbientController m_ambientController;
+
+	// ★ コーンライト専用定数バッファ (レジスタ b10 用)
+	KdConstantBuffer<cbConeLight> m_cb10_ConeLight;
 
 	bool m_pixelArtStyle = true;
 

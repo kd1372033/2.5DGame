@@ -56,6 +56,9 @@ void KdAmbientController::Init()
 void KdAmbientController::Update()
 {
 	m_pointLights.clear();
+
+	// 毎フレームリセット
+	m_coneLights.clear();
 }
 
 // ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// ///// /////
@@ -104,7 +107,7 @@ void KdAmbientController::SetConeLight(
 	m_spConeLight->Range = range;
 	m_spConeLight->Color = col;
 	m_spConeLight->Intensity = 1.0f;
-	m_spConeLight->EdgeSmoothness = 0.5f;
+	m_spConeLight->EdgeSmoothness = 0.5f; // ★ 削除またはコメントアウト
 
 	m_spConeLight->IsHit = isHit ? 1 : 0;
 	m_spConeLight->HitPos = hitPos;
@@ -119,7 +122,10 @@ void KdAmbientController::SetConeLight(const ConeLight& coneLight)
 
 void KdAmbientController::AddConeLight(const ConeLight& coneLight)
 {
-	SetConeLight(coneLight);
+	if (m_coneLights.size() < kMaxConeLightCount)
+	{
+		m_coneLights.push_back(coneLight);
+	}
 }
 
 void KdAmbientController::SetConeLightEnable(bool enable)
@@ -211,14 +217,11 @@ void KdAmbientController::WriteLightParams()
 		m_dirtyLightDir = false;
 	}
 
-	// 点光源（毎フレーム必ず転送）
+	// 点光源
 	KdShaderManager::Instance().WriteCBPointLight(m_pointLights);
 
-	// 単体コーンライトの転送
-	if (m_spConeLight)
-	{
-		KdShaderManager::Instance().WriteCBConeLight(*m_spConeLight);
-	}
+	// ★ 複数コーンライトの一括転送 (m_coneLights の配列を転送)
+	KdShaderManager::Instance().WriteCBConeLight(m_coneLights);
 
 	// 影描画エリアの更新
 	KdShaderManager::Instance().WriteCBShadowArea(m_shadowProj, m_dirLightHeight);

@@ -26,6 +26,29 @@ float BlinnPhong(float3 lightDir, float3 vCam, float3 normal, float specPower)
 	return spec * ((specPower + 2) / (2 * 3.1415926535));
 }
 
+static const int MAX_CONE_LIGHTS = 20;
+
+struct ConeLightData
+{
+	float3 Pos;
+	float Angle;
+	float3 Dir;
+	float Range;
+	float3 Color;
+	float Intensity;
+	int IsHit;
+	float3 HitPos;
+	float3 HitNormal;
+	float Padding;
+};
+
+cbuffer cbConeLight : register(b10) // ※使用中のレジスタ番号に合わせてください
+{
+	int g_ConeLightCount;
+	float3 g_ConeLightPadding;
+	ConeLightData g_ConeLights[MAX_CONE_LIGHTS];
+};
+
 //================================
 // ピクセルシェーダ
 //================================
@@ -217,104 +240,115 @@ float4 main(VSOutput In) : SV_Target0
 	}
 
 	// --------------------------------------------------
-	// 2.5D コーンライト (単体表示状態)
-	// --------------------------------------------------
-	if (g_ConeLightEnable)
+// 2.5D コーンライト (複数対応ループ描画)
+// --------------------------------------------------
+	if (g_ConeLightCount > 0)
 	{
-		float3 coneDirXZ = float3(g_ConeLightDir.x, 0.0f, g_ConeLightDir.z);
-		if (length(coneDirXZ) > 0.001f)
-			coneDirXZ = normalize(coneDirXZ);
-		else
-			coneDirXZ = float3(1.0f, 0.0f, 0.0f);
+		for (int i = 0; i < g_ConeLightCount; ++i)
+		{
+			ConeLightData light = g_ConeLights[i];
+
+			float3 coneDirXZ = float3(light.Dir.x, 0.0f, light.Dir.z);
+			if (length(coneDirXZ) > 0.001f)
+				coneDirXZ = normalize(coneDirXZ);
+			else
+				coneDirXZ = float3(1.0f, 0.0f, 0.0f);
 
 		// --- 1. 床面への照射 ---
-		float3 lightVecXZ = In.wPos - g_ConeLightPos;
-		lightVecXZ.y = 0.0f; // XZ平面上の距離計算
-		float distXZ = length(lightVecXZ);
+			float3 lightVecXZ = In.wPos - light.Pos;
+			lightVecXZ.y = 0.0f; // XZ平面上の距離計算
+			float distXZ = length(lightVecXZ);
 
-		if (distXZ <= g_ConeLightRange && distXZ > 0.001f)
-		{
-			float3 lightDirXZ = lightVecXZ / distXZ;
+			if (distXZ <= light.Range && distXZ > 0.001f)
+			{
+				float3 lightDirXZ = lightVecXZ / distXZ;
 
 			// 照射方向との角度（内積）判定
-			float cosAngle = dot(lightDirXZ, coneDirXZ);
+				float cosAngle = dot(lightDirXZ, coneDirXZ);
 			
-			float halfAngleRad = radians(g_ConeLightAngle * 0.5f);
-			float coneCos = cos(halfAngleRad);
+				float halfAngleRad = radians(light.Angle * 0.5f);
+				float coneCos = cos(halfAngleRad);
 
 			// 扇形の内部 & 上向きポリゴン（床）への描画
-			if (cosAngle >= coneCos && wN.y >= 0.1f)
-			{
-				bool isBeforeWall = true;
+				if (cosAngle >= coneCos && wN.y >= 0.1f)
+				{
+					bool isBeforeWall = true;
 
 				// 壁のレイキャスト遮蔽判定
-				if (g_ConeLightIsHit)
-				{
-					float distToPixel = dot(In.wPos - g_ConeLightPos, coneDirXZ);
-					float distToWall = dot(g_ConeLightHitPos - g_ConeLightPos, coneDirXZ);
-					if (distToPixel > distToWall + 0.05f)
+					if (light.IsHit)
 					{
-						isBeforeWall = false;
+						float distToPixel = dot(In.wPos - light.Pos, coneDirXZ);
+						float distToWall = dot(light.HitPos - light.Pos, coneDirXZ);
+						if (distToPixel > distToWall + 0.05f)
+						{
+							isBeforeWall = false;
+						}
+					}
+
+					if (isBeforeWall)
+					{
+						float maxIntensity = max(light.Color.r, max(light.Color.g, light.Color.b));
+						float3 normColor = (maxIntensity > 0.0f) ? (light.Color / maxIntensity) : float3(0, 0, 0);
+
+						outColor += normColor * light.Intensity * baseDiffuse * baseColor.a;
 					}
 				}
-
-				if (isBeforeWall)
-				{
-					float maxIntensity = max(g_ConeLightColor.r, max(g_ConeLightColor.g, g_ConeLightColor.b));
-					float3 normColor = (maxIntensity > 0.0f) ? (g_ConeLightColor / maxIntensity) : float3(0, 0, 0);
-
-					outColor += normColor * g_ConeLightIntensity * baseDiffuse * baseColor.a;
-				}
 			}
-		}
 
-		// --- 2. 壁面へのヒット演出（目の前の壁のみ & 地面起点） ---
-		if (g_ConeLightIsHit && wN.y < 0.1f) // 壁面ポリゴン（垂直面）のみ対象
-		{
-			// 光の照射方向と壁の法線が正対している表側のみ判定
-			float wallNdotL = dot(wN, -coneDirXZ);
-
-			if (wallNdotL > 0.2f)
+			// --- 2. 壁面へのヒット演出（見た目の比率を 1:1 に補正） ---
+			if (light.IsHit && wN.y < 0.1f) // 壁面ポリゴン（垂直面）のみ対象
 			{
-				// ★ 修正点: Rayが実際に着弾した地点（g_ConeLightHitPos）と描画ピクセル（In.wPos）の距離を計算
-				// これにより、Rayが届いていない「奥の壁」への誤描画を完全に遮断します
-				float3 hitToPixel = In.wPos - g_ConeLightHitPos;
-				hitToPixel.y = 0.0f; // XZ平面上での距離チェック
+				// 光の照射方向と壁の法線が正対している表側のみ判定
+				float wallNdotL = dot(wN, -coneDirXZ);
 
-				// 照射角に対応する壁上の最大半径
-				float halfAngleRad = radians(g_ConeLightAngle * 0.5f);
-				float coneRadiusAtEnd = g_ConeLightRange * tan(halfAngleRad);
-
-				// 着弾位置から離れすぎている壁（奥の部屋の壁など）を除外
-				if (length(hitToPixel) <= coneRadiusAtEnd + 0.3f)
+				if (wallNdotL > 0.2f)
 				{
-					// 地面（Y=0）を起点とした着弾位置
-					float3 groundHitPos = float3(g_ConeLightHitPos.x, 0.0f, g_ConeLightHitPos.z);
-					float3 hitToPos = In.wPos - groundHitPos;
+					float3 hitToPixel = In.wPos - light.HitPos;
+					hitToPixel.y = 0.0f; // XZ平面上での距離チェック
 
-					// 壁の法線から壁の横方向（Tangent）を算出
-					float3 N = normalize(g_ConeLightHitNormal);
-					N.y = 0.0f;
-					if (length(N) > 0.001f)
-						N = normalize(N);
-					else
-						N = -coneDirXZ;
+					// 扇形の半角ラジアン
+					float halfAngleRad = radians(light.Angle * 0.5f);
 
-					float3 Tangent = float3(-N.z, 0.0f, N.x);
+					// 敵から着弾点までの実際の水平距離
+					float distToHit = length(light.HitPos - light.Pos);
 
-					// 壁面上の 2D 座標 (u: 横幅, v: 高さ)
-					float u = dot(hitToPos, Tangent);
-					float v = In.wPos.y; // 地面からの絶対的な高さ
+					// 着弾地点の壁上における標準半径
+					float wallRadius = distToHit * tan(halfAngleRad);
 
-					// 地面の着弾中心点からの半円判定
-					float distFromGroundCenter = sqrt(u * u + v * v);
-
-					if (v >= -0.05f && distFromGroundCenter <= coneRadiusAtEnd)
+					if (length(hitToPixel) <= wallRadius + 0.3f)
 					{
-						float maxIntensity = max(g_ConeLightColor.r, max(g_ConeLightColor.g, g_ConeLightColor.b));
-						float3 normColor = (maxIntensity > 0.0f) ? (g_ConeLightColor / maxIntensity) : float3(0, 0, 0);
+						// 地面（Y=0）を起点とした着弾位置
+						float3 groundHitPos = float3(light.HitPos.x, 0.0f, light.HitPos.z);
+						float3 hitToPos = In.wPos - groundHitPos;
 
-						outColor += normColor * g_ConeLightIntensity * baseDiffuse * baseColor.a;
+						// 壁の法線から水平な横方向（Tangent）を算出
+						float3 N = normalize(light.HitNormal);
+						N.y = 0.0f;
+						if (length(N) > 0.001f)
+							N = normalize(N);
+						else
+							N = -coneDirXZ;
+
+						float3 Tangent = float3(-N.z, 0.0f, N.x);
+
+						// 壁面上の 2D 座標 (u: 横幅, v: 高さ)
+						float u = dot(hitToPos, Tangent);
+					
+						// ★ 縦方向のスケール補正（見下ろしカメラの遠近・角度で縦長に見えるのを防ぐ）
+						// 1.5 〜 1.6 で割る（または 0.65 程度を乗算）ことで見た目をきれいな半円にします
+						float v = In.wPos.y * 1.5f;
+
+						// 地面中心からの距離計算
+						float distFromGroundCenter = sqrt(u * u + v * v);
+
+						// 地面以上かつ半径以内なら描画
+						if (In.wPos.y >= -0.05f && distFromGroundCenter <= wallRadius)
+						{
+							float maxIntensity = max(light.Color.r, max(light.Color.g, light.Color.b));
+							float3 normColor = (maxIntensity > 0.0f) ? (light.Color / maxIntensity) : float3(0, 0, 0);
+
+							outColor += normColor * light.Intensity * baseDiffuse * baseColor.a;
+						}
 					}
 				}
 			}
