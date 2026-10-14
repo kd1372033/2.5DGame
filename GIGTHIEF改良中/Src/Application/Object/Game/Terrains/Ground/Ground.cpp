@@ -129,19 +129,3 @@ void Ground::DrawLit()
 	// シェーダーのフラグをデフォルト（false）に戻しておく
 	KdShaderManager::Instance().m_StandardShader.SetColorEnable(false);
 }
-
-// 2. 他の部屋の半透明壁の描画（半透明パス）
-void Ground::DrawUnLit()
-{
-	//// アルファブレンドと ZWriteDisable（深度書き込みオフ）を有効化
-	//KdShaderManager::Instance().ChangeBlendState(KdBlendState::Alpha);
-	//KdShaderManager::Instance().ChangeDepthStencilState(KdDepthStencilState::ZWriteDisable);
-	//KdShaderManager::Instance().m_StandardShader.SetColorEnable(true);
-	//if (m_frontColor.w < 1.0f && m_front)  KdShaderManager::Instance().m_StandardShader.DrawModel(*m_front, m_mWorld, m_frontColor);
-	//if (m_stage1Color.w < 1.0f && m_stage1) KdShaderManager::Instance().m_StandardShader.DrawModel(*m_stage1, m_mWorld, m_stage1Color);
-	//if (m_stage2Color.w < 1.0f && m_stage2) KdShaderManager::Instance().m_StandardShader.DrawModel(*m_stage2, m_mWorld, m_stage2Color);
-	//if (m_stage3Color.w < 1.0f && m_stage3) KdShaderManager::Instance().m_StandardShader.DrawModel(*m_stage3, m_mWorld, m_stage3Color);
-
-	//KdShaderManager::Instance().UndoDepthStencilState();
-	//KdShaderManager::Instance().UndoBlendState();
-}

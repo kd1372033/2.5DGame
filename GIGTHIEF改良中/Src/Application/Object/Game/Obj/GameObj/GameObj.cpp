@@ -2,6 +2,7 @@
 
 void Furniture::Init()
 {
+	m_pCollider = std::make_unique<KdCollider>();
 	Math::Vector3 scale(1.0f, 1.0f, 1.0f);
 	Math::Matrix scalemat = Math::Matrix::CreateScale(scale);
 	Math::Matrix rotatemat = Math::Matrix::CreateRotationY(DirectX::XMConvertToRadians(90));
@@ -10,9 +11,8 @@ void Furniture::Init()
 	m_mWorld = scalemat * rotatemat * transmat;
 
 	m_model = std::make_shared<KdModelData>();
-	m_model->Load("Asset/Models/Kagu/Kagu.gltf");
 	if (m_model->Load("Asset/Models/Kagu/Kagu.gltf")) {
-		m_pCollider->RegisterCollisionShape("Furniture", m_model, KdCollider::TypeGround);
+		m_pCollider->RegisterCollisionShape("Furniture", m_model, KdCollider::TypeGround | KdCollider::TypeBump);
 	}
 
 }

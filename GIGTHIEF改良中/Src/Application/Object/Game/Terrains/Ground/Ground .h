@@ -9,7 +9,6 @@ public:
 	void Init() override;
 	void Update() override;
 	void DrawLit() override;
-	void DrawUnLit() override;
 
 	void SetPlayer(const std::shared_ptr<KdGameObject>& spPlayer) { m_wpPlayer = spPlayer; }
 
