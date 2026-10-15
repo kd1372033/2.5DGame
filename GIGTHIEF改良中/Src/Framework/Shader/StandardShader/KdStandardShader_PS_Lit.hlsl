@@ -424,7 +424,7 @@ float4 main(VSOutput In) : SV_Target0
 		// float4 (float3, float);	←これ採用
 		// float4 (float2, float2);
 		// outColor：最終的に塗られる色
-		return float4(outColor + float3(0, 0, 0), baseColor.a - 0.5f);
+		return float4(outColor + float3(0, 0, 0), baseColor.a - 0.6f);
 	}
 	else
 	{

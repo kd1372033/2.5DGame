@@ -149,6 +149,7 @@ void GameScene::Init()
 
 	std::shared_ptr<Furniture> furniture = std::make_shared<Furniture>();
 	m_objList.push_back(furniture);
+	furniture->SetPlayer(m_player);
 
 	// =============================================================
 	// ★ 全9部屋に1つずつ Desk（引き出し）を配置
