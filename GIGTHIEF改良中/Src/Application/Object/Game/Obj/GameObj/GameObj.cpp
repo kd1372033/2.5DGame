@@ -95,3 +95,31 @@ void Furniture::DrawLit()
 	// シェーダーのフラグをデフォルト（false）に戻しておく
 	KdShaderManager::Instance().m_StandardShader.SetColorEnable(false);
 }
+
+void Furniture::GenerateDepthMapFromLight()
+{
+	auto drawModel = [](std::shared_ptr<KdModelData>& model, const Math::Matrix& world, bool isColorEnable)
+		{
+			if (!model) return;
+
+			// シェーダー側へフラグを設定
+			KdShaderManager::Instance().m_StandardShader.SetColorEnable(isColorEnable);
+
+			if (isColorEnable)
+			{
+				KdShaderManager::Instance().m_StandardShader.DrawModel(*model, world);
+			}
+			else
+			{
+				KdShaderManager::Instance().m_StandardShader.DrawModel(*model, world);
+			}
+		};
+
+	// 各モデルの描画呼び出し
+	drawModel(m_model1, m_mWorld, m_isModel1ColorEnable);
+	drawModel(m_model2, m_mWorld, m_isModel2ColorEnable);
+	drawModel(m_model3, m_mWorld, m_isModel3ColorEnable);
+
+	// シェーダーのフラグをデフォルト（false）に戻しておく
+	KdShaderManager::Instance().m_StandardShader.SetColorEnable(false);
+}

@@ -31,10 +31,11 @@ void Player::Init()
 
 void Player::Update()
 {
+
 	// デバッグ表示切り替え
-	if (GetAsyncKeyState('A') & 0x0001)
+	if (GetAsyncKeyState('z') & 0x0001)
 	{
-		m_showDebugWire = !m_showDebugWire;
+		m_pos = { 1.5f,0.0f,2.50f };
 	}
 
 	bool isMoving = false;

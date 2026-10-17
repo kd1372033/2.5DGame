@@ -94,38 +94,85 @@ void Ground::Update()
 
 void Ground::DrawLit()
 {
-	// 描画補助ラムダ関数
-	auto drawModel = [](std::shared_ptr<KdModelData>& model, const Math::Matrix& world, bool isColorEnable)
+	// 1. 床の描画（床は常に不透明描画）
+	KdShaderManager::Instance().m_StandardShader.SetColorEnable(false);
+	if (m_front)  KdShaderManager::Instance().m_StandardShader.DrawModel(*m_front, m_mWorld);
+	if (m_stage1) KdShaderManager::Instance().m_StandardShader.DrawModel(*m_stage1, m_mWorld);
+	if (m_stage2) KdShaderManager::Instance().m_StandardShader.DrawModel(*m_stage2, m_mWorld);
+	if (m_stage3) KdShaderManager::Instance().m_StandardShader.DrawModel(*m_stage3, m_mWorld);
+
+	// 2. 壁の描画補助用ラムダ関数
+	auto drawWall = [](std::shared_ptr<KdModelData>& model, const Math::Matrix& world, bool isColorEnable)
 		{
 			if (!model) return;
 
-			// シェーダー側へフラグを設定
+			// シェーダー側へ半透明/カラーフラグを設定
 			KdShaderManager::Instance().m_StandardShader.SetColorEnable(isColorEnable);
 
-			// 半透明処理が必要な場合（isColorEnable == true）はブレンドステートを切り替え
 			if (isColorEnable)
 			{
+				// ★【最重要修正】半透明時はアルファブレンドをONにし、ZWrite（深度書き込み）をOFFにする
+				// これにより、壁は透けて見えつつ、奥にいる敵のZ判定を妨害しなくなります
+				KdShaderManager::Instance().ChangeBlendState(KdBlendState::Alpha);
+				KdShaderManager::Instance().ChangeDepthStencilState(KdDepthStencilState::ZWriteDisable);
 
 				KdShaderManager::Instance().m_StandardShader.DrawModel(*model, world);
+
+				// ステートを元に戻す
+				KdShaderManager::Instance().UndoDepthStencilState();
+				KdShaderManager::Instance().UndoBlendState();
 			}
 			else
 			{
+				// 通常の不透明壁描画
 				KdShaderManager::Instance().m_StandardShader.DrawModel(*model, world);
 			}
 		};
 
-	// 1. 床の描画（床は常に SetColorEnable(false) で不透明描画）
-	drawModel(m_front, m_mWorld, false);
-	drawModel(m_stage1, m_mWorld, false);
-	drawModel(m_stage2, m_mWorld, false);
-	drawModel(m_stage3, m_mWorld, false);
+	// 壁の描画（フラグに応じてステートが自動制御されます）
+	drawWall(m_frontwall, m_mWorld, m_isFrontWallColorEnable);
+	drawWall(m_stagewall1, m_mWorld, m_isStageWall1ColorEnable);
+	drawWall(m_stagewall2, m_mWorld, m_isStageWall2ColorEnable);
+	drawWall(m_stagewall3, m_mWorld, m_isStageWall3ColorEnable);
 
-	// 2. 壁の描画（フラグに応じて SetColorEnable を切り替え）
-	drawModel(m_frontwall, m_mWorld, m_isFrontWallColorEnable);
-	drawModel(m_stagewall1, m_mWorld, m_isStageWall1ColorEnable);
-	drawModel(m_stagewall2, m_mWorld, m_isStageWall2ColorEnable);
-	drawModel(m_stagewall3, m_mWorld, m_isStageWall3ColorEnable);
-
-	// シェーダーのフラグをデフォルト（false）に戻しておく
+	// シェーダーのフラグをデフォルトに戻す
 	KdShaderManager::Instance().m_StandardShader.SetColorEnable(false);
 }
+
+//void Ground::DrawLit()
+//{
+//	// 描画補助ラムダ関数
+//	auto drawModel = [](std::shared_ptr<KdModelData>& model, const Math::Matrix& world, bool isColorEnable)
+//		{
+//			if (!model) return;
+//
+//			// シェーダー側へフラグを設定
+//			KdShaderManager::Instance().m_StandardShader.SetColorEnable(isColorEnable);
+//
+//			// 半透明処理が必要な場合（isColorEnable == true）はブレンドステートを切り替え
+//			if (isColorEnable)
+//			{
+//
+//				KdShaderManager::Instance().m_StandardShader.DrawModel(*model, world);
+//			}
+//			else
+//			{
+//				KdShaderManager::Instance().m_StandardShader.DrawModel(*model, world);
+//			}
+//		};
+//
+//	// 1. 床の描画（床は常に SetColorEnable(false) で不透明描画）
+//	drawModel(m_front, m_mWorld, false);
+//	drawModel(m_stage1, m_mWorld, false);
+//	drawModel(m_stage2, m_mWorld, false);
+//	drawModel(m_stage3, m_mWorld, false);
+//
+//	// 2. 壁の描画（フラグに応じて SetColorEnable を切り替え）
+//	drawModel(m_frontwall, m_mWorld, m_isFrontWallColorEnable);
+//	drawModel(m_stagewall1, m_mWorld, m_isStageWall1ColorEnable);
+//	drawModel(m_stagewall2, m_mWorld, m_isStageWall2ColorEnable);
+//	drawModel(m_stagewall3, m_mWorld, m_isStageWall3ColorEnable);
+//
+//	// シェーダーのフラグをデフォルト（false）に戻しておく
+//	KdShaderManager::Instance().m_StandardShader.SetColorEnable(false);
+//}

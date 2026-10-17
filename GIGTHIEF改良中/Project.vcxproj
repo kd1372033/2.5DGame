@@ -278,9 +278,11 @@
     <ClInclude Include="Src\Application\Object\Game\Character\Player\Player.h" />
     <ClInclude Include="Src\Application\Object\Game\Item\Item\Item.h" />
     <ClInclude Include="Src\Application\Object\Game\Item\Jewely\Jewelry.h" />
+    <ClInclude Include="Src\Application\Object\Game\Obj\Computer\Computer.h" />
     <ClInclude Include="Src\Application\Object\Game\Obj\Desk\Desk.h" />
     <ClInclude Include="Src\Application\Object\Game\Obj\GameObj\GameObj.h" />
     <ClInclude Include="Src\Application\Object\Game\Obj\GameUI\GameUI.h" />
+    <ClInclude Include="Src\Application\Object\Game\Obj\SecurityCamera\SecurityCamera.h" />
     <ClInclude Include="Src\Application\Object\Game\Terrains\Back\Back.h" />
     <ClInclude Include="Src\Application\Object\Game\Terrains\Ground\Ground .h" />
     <ClInclude Include="Src\Application\Object\Result\ResultObj\ResultObj.h" />
@@ -343,9 +345,11 @@
     <ClCompile Include="Src\Application\Object\Game\Character\Player\Player.cpp" />
     <ClCompile Include="Src\Application\Object\Game\Item\Item\Item.cpp" />
     <ClCompile Include="Src\Application\Object\Game\Item\Jewely\Jewelry.cpp" />
+    <ClCompile Include="Src\Application\Object\Game\Obj\Computer\Computer.cpp" />
     <ClCompile Include="Src\Application\Object\Game\Obj\Desk\Desk.cpp" />
     <ClCompile Include="Src\Application\Object\Game\Obj\GameObj\GameObj.cpp" />
     <ClCompile Include="Src\Application\Object\Game\Obj\GameUI\GameUI.cpp" />
+    <ClCompile Include="Src\Application\Object\Game\Obj\SecurityCamera\SecurityCamera.cpp" />
     <ClCompile Include="Src\Application\Object\Game\Terrains\Back\Back.cpp" />
     <ClCompile Include="Src\Application\Object\Game\Terrains\Ground\Ground.cpp" />
     <ClCompile Include="Src\Application\Object\Result\ResultObj\ResultObj.cpp" />

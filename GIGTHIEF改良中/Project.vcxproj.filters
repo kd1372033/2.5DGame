@@ -136,6 +136,12 @@
     <Filter Include="Src\Application\Object\Game\Obj\GameObj">
       <UniqueIdentifier>{2414552d-e007-4c19-9d78-d21cb8716ae9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Src\Application\Object\Game\Obj\Computer">
+      <UniqueIdentifier>{470fa7fe-c1ea-4c73-ade2-569d9762fab1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Src\Application\Object\Game\Obj\SecurityCamera">
+      <UniqueIdentifier>{2d513f4e-188b-4a5e-8910-1f549e1d26c6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Pch.h">
@@ -348,6 +354,12 @@
     <ClInclude Include="Src\Application\Object\Game\Obj\GameObj\GameObj.h">
       <Filter>Src\Application\Object\Game\Obj\GameObj</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Application\Object\Game\Obj\Computer\Computer.h">
+      <Filter>Src\Application\Object\Game\Obj\Computer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Application\Object\Game\Obj\SecurityCamera\SecurityCamera.h">
+      <Filter>Src\Application\Object\Game\Obj\SecurityCamera</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Pch.cpp">
@@ -529,6 +541,12 @@
     </ClCompile>
     <ClCompile Include="Src\Application\Object\Game\Obj\GameObj\GameObj.cpp">
       <Filter>Src\Application\Object\Game\Obj\GameObj</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Application\Object\Game\Obj\Computer\Computer.cpp">
+      <Filter>Src\Application\Object\Game\Obj\Computer</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Application\Object\Game\Obj\SecurityCamera\SecurityCamera.cpp">
+      <Filter>Src\Application\Object\Game\Obj\SecurityCamera</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

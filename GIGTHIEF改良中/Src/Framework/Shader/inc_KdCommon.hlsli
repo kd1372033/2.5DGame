@@ -83,3 +83,24 @@ cbuffer cbLight : register(b9)
 	float3 g_ConeLightHitNormal;
 	float dummy_ConeLight3;
 };
+
+//------------------------------
+// 定数バッファ(カラースフィア/赤色バリアエフェクト)
+//------------------------------
+struct EffectSphereData
+{
+	float3 Pos; // カラースフィアの中心座標
+	float Radius; // カラースフィアの半径
+	float3 Color; // 加算・強調する色
+	float Padding; // パッキング用
+};
+
+static const int MAX_EFFECT_SPHERES = 10;
+
+cbuffer cbEffect : register(b10)
+{
+	int g_colorEnable; // 全体有効フラグ
+	int g_colorCount; // 有効なスフィアの数 (最大10)
+	float2 g_colorPadding;
+	EffectSphereData g_colorList[MAX_EFFECT_SPHERES]; // スフィア配列
+};

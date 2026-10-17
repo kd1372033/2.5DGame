@@ -43,6 +43,9 @@ public:
 	void SetPos(const Math::Vector3& _pos) override { m_pos = _pos; }
 	void SetTarget(std::weak_ptr<Player> _target) { m_wpTarget = _target; }
 
+	// ★ Jewelry等からの呼出用 SetPlayer 関数の追加（SetTarget のエイリアス）
+	void SetPlayer(std::weak_ptr<Player> player) { m_wpTarget = player; }
+
 	void SetTargetItem(std::shared_ptr<KdGameObject> pItem)
 	{
 		m_wpItem = pItem;
@@ -113,7 +116,6 @@ private:
 	std::shared_ptr<KdSquarePolygon> m_polygon;
 	std::weak_ptr<Ground> m_wpStage;
 	// 視界メッシュ描画用のポリゴン
-	//std::shared_ptr<KdPolygon> m_viewPolygon = nullptr;
 	std::shared_ptr<VisionPolygon> m_viewPolygon = nullptr;
 	// サーチライトデカール用
 	std::shared_ptr<KdSquarePolygon> m_decalPolygon = nullptr;
@@ -164,7 +166,7 @@ private:
 
 	// 視界パラメータ
 	float m_viewAngle = 40.0f;     // 視野角
-	float m_viewDistance = 1.0f;   // 視界の届く最大距離（0.7f から 2.0f〜3.0f に拡張）
+	float m_viewDistance = 1.0f;   // 視界の届く最大距離
 	float m_viewRenderDistance = 1.01f; // サーチライトの見た目の長さ
 
 	float m_itemAttractTimeout = 0.0f; // アイテム追従開始からの経過時間
@@ -173,9 +175,9 @@ private:
 	float m_coneAngle = 10.0f; // ライトの開き角度
 	bool m_isHitWall = false; // 壁に当たっているかどうか（Hitフラグ）
 
-	float m_maxLightRange = 20.0f; // ライトの最大距離（キー操作で変化）
-	float m_coneLightRange = 20.0f; // 照射距離（初期値: 20）
-	float m_coneLightAngle = 30.0f; // 照射角度（初期値: 30度）
+	float m_maxLightRange = 20.0f; // ライトの最大距離
+	float m_coneLightRange = 20.0f; // 照射距離
+	float m_coneLightAngle = 30.0f; // 照射角度
 
 	Math::Vector3 m_raypos;
 	Math::Vector3 m_tohitvector;
